@@ -47,6 +47,24 @@ The skill is invoked via Claude Code's skill system (trigger: `llm wiki`, `知�
 - `lark-cli` skills (`npx skills add larksuite/cli -y -g`) — provides `docs +create/+fetch/+update/+search`, `drive +download`, etc.
 - Authentication: `lark-cli auth login` (interactive, user must run manually)
 
+## Pre-Push Security Checklist
+
+Every commit must pass the following checks before push — reject if any item fails:
+
+| # | Check | Fail Condition |
+|---|-------|---------------|
+| 1 | No hardcoded secrets | Files contain literal tokens, API keys, passwords, or private keys (grep for patterns: `AKIA`, `BEGIN.*KEY`, `ssh-rsa`, real `app_id`/`app_secret` values) |
+| 2 | No internal URLs | Files contain `*.bytedance.*`, `*.feishu.cn`, `*.larksuite.com`, or other internal/intranet domains |
+| 3 | Secrets via env only | `save_config.py` or scripts reference tokens/credentials from anywhere other than `os.environ` or shell `$VAR` |
+| 4 | .gitignore covers secrets | `.env`, `.env.*`, `*.pem`, `credentials.*` are not in `.gitignore` |
+| 5 | No binary/media blobs | Tracked files include images, compiled binaries, or large media (check with `file --mime-type`) |
+| 6 | Template placeholders only | `SKILL.md`, `common.sh`, workflow docs use only `<TOKEN>`, `<FOLDER_TOKEN>` style placeholders — never real IDs |
+
+Automated enforcement: `scripts/security_check.sh` runs all 6 checks automatically as a **git pre-commit hook**.
+
+- Install hook: `make install-hooks`
+- Manual full scan: `make security-check` (or `bash scripts/security_check.sh --all`)
+
 ## Local State
 
 Config file: `~/.llm_wiki.setting.json` — stores per-wiki metadata (storage_type, space_id, root token, INDEX/AGENTS/LOG doc_ids, URLs, raw_subdirs). Supports multiple wikis via `wikis` array.
