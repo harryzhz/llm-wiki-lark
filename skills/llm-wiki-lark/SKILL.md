@@ -67,6 +67,7 @@ Step 2: 检查认证
 | 下载文件 | `cd /tmp && lark-cli drive +download --file-token <TOKEN> --output ./<文件名>` |
 | 搜索文档 | `lark-cli docs +search --query "关键词"` |
 | 列出目录内容 | `lark-cli drive files list --as user --params '{"folder_token":"<FOLDER_TOKEN>"}'` |
+| 创建快捷方式 | `lark-cli drive +create-shortcut --as user --file-token <TOKEN> --type <docx\|file\|bitable\|doc\|sheet\|mindnote\|slides> --folder-token <FOLDER>` |
 | 上传文件到目录 | `lark-cli drive +upload --as user --file <本地绝对路径> --folder-token <FOLDER>` |
 | 移动文件/文档 | `lark-cli drive +move --as user --file-token <TOKEN> --type <docx\|file\|folder> --folder-token <TARGET>` |
 
