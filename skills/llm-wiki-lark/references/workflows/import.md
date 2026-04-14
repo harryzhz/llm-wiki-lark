@@ -70,7 +70,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
   > 请回复 **1（快捷方式）** 或 **2（直接移动）**，直接回车默认选 1：
 
 - 根据用户选择执行：
-  - **选择 1（快捷方式，默认）**：参照 `adapter/<STORAGE_TYPE>.md`「创建快捷方式」执行对应命令
+  - **选择 1（快捷方式，默认）**：参照 `adapter/<STORAGE_TYPE>.md`「创建快捷方式」执行对应命令；若为 `drive` 模式，优先使用 `lark-cli drive +create-shortcut`
   - **选择 2（直接移动）**：参照 `adapter/<STORAGE_TYPE>.md`「移动文档」/「移动节点」执行对应命令
 - 记录 RAW_REFERENCE = `<mention-doc token="<SOURCE_DOC_ID>" type="docx"><TITLE></mention-doc>`
 

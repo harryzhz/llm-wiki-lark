@@ -31,8 +31,8 @@ lark-cli drive files list --as user --params '{"folder_token":"<TOKEN>"}'
 ## 创建快捷方式
 
 ```
-lark-cli api --as user POST /open-apis/drive/v1/files/create_shortcut \
-  --data '{"parent_token":"<TARGET_TOKEN>","refer_entity":{"refer_token":"<SOURCE_DOC_ID>","refer_type":"docx"}}'
+lark-cli drive +create-shortcut --as user \
+  --file-token <SOURCE_DOC_ID> --type docx --folder-token <TARGET_TOKEN>
 ```
 
 ## 移动文档
