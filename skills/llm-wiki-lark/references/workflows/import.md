@@ -87,10 +87,10 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 - 记录原始 URL，记录 SOURCE_URL
 - **使用 webclip-cli 工具抓取页面全文和媒体文件**：
   ```
-  npx github:harryzhz/webclip-cli "<SOURCE_URL>"
+  webclip-cli "<SOURCE_URL>"
   ```
-  - `npx` 会自动下载并缓存 webclip-cli 包（首次使用约 10s）
-  - 若命令不存在，提示用户全局安装：`npm install -g github:harryzhz/webclip-cli`
+  - **必须使用本地全局安装的 `webclip-cli` 命令，禁止用 `npx github:...` 形式调用** 
+  - 调用前先 `command -v webclip-cli` 校验；若不存在，提示用户运行 `npm install -g github:harryzhz/webclip-cli` 完成全局安装后再继续，**不要回退到 `npx`**
   - 工具自动处理 JS 渲染页面（先尝试静态抓取，内容不足时自动升级为 Playwright 浏览器渲染）
   - 若需 JS 渲染但 Playwright 未安装，工具会提示安装：`npm install playwright && npx playwright install chromium`
   - 工具输出 JSON 到 stdout，日志输出到 stderr
