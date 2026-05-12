@@ -90,11 +90,11 @@ Step 2: 检查认证
 - [Drive Adapter](references/adapter/drive.md): 云盘模式命令参考
 - [Wiki Adapter](references/adapter/wiki.md): 知识库模式命令参考
 - [Init Templates](references/templates/init.md): AGENTS.md、INDEX、LOG 初始模板
-- [Page Templates](references/templates/pages.md): Source 摘要、Entity/Concept/Comparison/Overview/LOG 模版
+- [Page Templates](references/templates/pages.md): Source 摘要、Entity/Concept/Comparison/Overview/LOG 模板
 
 ## 关键约束
 
-- **文档中引用其他文档/文件禁止使用原始 URL（（外部链接除外））** — 统一使用 `<mention-doc>`, **`<mention-doc>` token 必须用 `doc_id` 或 `file_token`**，type 固定 `docx`（文档和文件引用格式相同）
-- **文档中写入流程图、架构图、时序头必须用飞书画板的 DSL 格式**
+- **文档中引用其他文档/文件禁止使用原始 URL（外部链接除外）** — 统一使用 `<mention-doc>`, **`<mention-doc>` token 必须用 `doc_id` 或 `file_token`**，type 固定 `docx`（文档和文件引用格式相同）
+- **文档中写入流程图、架构图、时序图必须用飞书画板的 DSL 格式**
 - **新文档必须放入对应子目录**
-- **飞书文档增量更新优先，避免`overwrite`, 默认使用分段写入**: `docs +create` 仅写标题，内容用 `docs +update --mode append` 追加
+- **飞书文档增量更新优先，避免 `overwrite`，默认使用分段写入**: `docs +create` 仅写标题，内容用 `docs +update --mode append` 追加

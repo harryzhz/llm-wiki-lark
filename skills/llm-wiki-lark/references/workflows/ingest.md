@@ -40,7 +40,7 @@
 3. **读取源内容**
    - 飞书文档：`lark-cli docs +fetch --as user --doc <RAW_DOC_ID>`，记录 RAW_DOC_ID
    - 上传文件（PDF、图片等）：`cd /tmp && lark-cli drive +download --file-token <RAW_FILE_TOKEN> --output ./<文件名>`，用 Read 工具读取，记录 RAW_FILE_TOKEN
-   - Source 页「原始来源」统一使用 `<mention-doc token="RAW_DOC_ID 或 RAW_FILE_TOKEN" type="docx">标题</mention-doc>`
+   - Source 页「原始来源」统一使用 `<mention-doc token="<RAW_DOC_ID_OR_FILE_TOKEN>" type="docx">标题</mention-doc>`
 
 4. **分析源内容**
    - 提取实体、概念、关键要点
@@ -84,7 +84,7 @@
    - 禁止重复写入同名段落（如写两次 "## 相关实体"），每个段落标题在页面中只能出现一次
 
 8. **在 wiki/concepts/ 处理概念**
-   - 同步骤 7（使用 CONCEPTS_TOKEN），同样注意不要重复段落
+   - 参照步骤 7 的处理方式，将 ENTITIES_TOKEN 替换为 CONCEPTS_TOKEN，同样注意不要重复段落
 
 9. **补充交叉引用**
    - 回填 Source 页面中的占位引用

@@ -49,7 +49,7 @@
 
 ## Entity / Concept / Comparison / Overview 模板
 
-与之前版本相同，唯一区别是创建时需指定目标文件夹（云盘模式用 `--folder-token`，知识库模式用 `--wiki-node`，详见 [adapter/drive.md](../adapter/drive.md) 或 [adapter/wiki.md](../adapter/wiki.md)）。模板内容不重复列出，参见 [wiki-schema.md](../wiki-schema.md) 中各页面类型的必须段落定义。
+创建时需指定目标文件夹（云盘模式用 `--folder-token`，知识库模式用 `--wiki-node`，详见 [adapter/drive.md](../adapter/drive.md) 或 [adapter/wiki.md](../adapter/wiki.md)）。完整模板内容参见 [wiki-schema.md](../wiki-schema.md) 中各页面类型的「必须段落」定义。
 
 ---
 

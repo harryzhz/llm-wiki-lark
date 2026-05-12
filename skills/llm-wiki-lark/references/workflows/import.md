@@ -6,7 +6,7 @@
 
 - Wiki 已初始化
 - 从 `~/.llm_wiki.setting.json` 读取 index_doc_id、storage_type、space_id（或用户提供）
-- **Wiki 确认**：如果本地配置中 wikis ≥ 2，在选择目标 wiki 后，**必须**向用户确认选中的 wiki 名称再继续，避免写入错误的知识库
+- **Wiki 确认**：如果本地配置中 wikis ≥ 2，在选择目标 wiki 后，**必须**向用户确认选中的 wiki 名称再继续，此操作不可逆，避免写入错误的知识库
 - 已 fetch AGENTS 文档查看规范
 - 用户提供以下之一：飞书文档链接/token、本地文件路径、外部 URL
 
@@ -60,7 +60,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 - 记录 SOURCE_DOC_ID
 - 验证文档可访问：`lark-cli docs +fetch --as user --doc <SOURCE_DOC_ID>`（读取标题，确认存在）
 - 记录 TITLE
-- **！！！阻断操作️：执行前必须向用户确认导入方式（默认快捷方式）**：
+- **⚠️ 阻断操作：执行前必须向用户确认导入方式（默认快捷方式）**：
 
   > 检测到飞书文档「**<TITLE>**」，请确认导入方式：
   >
@@ -71,7 +71,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 
 - 根据用户选择执行：
   - **选择 1（快捷方式，默认）**：参照 `adapter/<STORAGE_TYPE>.md`「创建快捷方式」执行对应命令；若为 `drive` 模式，优先使用 `lark-cli drive +create-shortcut`
-  - **选择 2（直接移动）**：参照 `adapter/<STORAGE_TYPE>.md`「移动文档」/「移动节点」执行对应命令
+  - **选择 2（直接移动）**：参照 `adapter/<STORAGE_TYPE>.md`：drive 模式见「移动文档」，wiki 模式见「移动节点」
 - 记录 RAW_REFERENCE = `<mention-doc token="<SOURCE_DOC_ID>" type="docx"><TITLE></mention-doc>`
 
 **分支 B — 本地文件**
@@ -90,7 +90,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
   webclip-cli "<SOURCE_URL>"
   ```
   - **必须使用本地全局安装的 `webclip-cli` 命令，禁止用 `npx github:...` 形式调用** 
-  - 调用前先 `command -v webclip-cli` 校验；若不存在，提示用户运行 `npm install -g github:harryzhz/webclip-cli` 完成全局安装后再继续，**不要回退到 `npx`**
+  - 调用前先 `command -v webclip-cli` 校验；若不存在，提示用户运行 `npm install -g github:harryzhz/webclip-cli` 完成全局安装后再继续，**禁止回退到 `npx`**
   - 工具自动处理 JS 渲染页面（先尝试静态抓取，内容不足时自动升级为 Playwright 浏览器渲染）
   - 若需 JS 渲染但 Playwright 未安装，工具会提示安装：`npm install playwright && npx playwright install chromium`
   - 工具输出 JSON 到 stdout，日志输出到 stderr

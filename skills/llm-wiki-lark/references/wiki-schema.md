@@ -45,7 +45,7 @@ Wiki 的结构约定和 LLM 行为规范文档。定义：
 | 子目录 | 用途 | 存放方式 |
 |-------|------|---------|
 | `papers/` | 学术论文 | PDF 上传或转换为 MD 后上传 |
-| `articles/` | 博客文章、新闻报道 | 飞书剪存生成的飞书文档存放 |
+| `articles/` | 博客文章、新闻报道 | 飞书云文档或 Markdown 上传 |
 | `repos/` | 代码仓库 README / 关键文件快照 | MD 文件上传 |
 | `datasets/` | 数据文件 | CSV、JSON 等直接上传 |
 | `images/` | 图表、架构图、截图 | PNG/JPG 等图片上传 |
@@ -80,7 +80,7 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 - `## 关键要点` — 要点列表
 - `## 提取的实体` — 使用 `<mention-doc>` 链接
 - `## 提取的概念` — 使用 `<mention-doc>` 链接
-- `## 原始来源` — 使用 `<mention-doc>` 引用 raw/ 下的素材（文档和文件格式相同）
+- `## 原始来源` — 使用 `<mention-doc>` 引用 raw/ 下的素材（docx 文档和上传文件统一使用 `type="docx"`）
 
 ### Entity（实体页）
 
@@ -143,8 +143,8 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 - **类型**: source | entity | concept | comparison | overview
 - **创建时间**: YYYY-MM-DD HH:mm
 - **最后更新**: YYYY-MM-DD HH:mm
-- **来源**: <mention-doc token="doxcnXXX" type="docx">Source: 标题</mention-doc>
-- **关联**: <mention-doc token="doxcnYYY" type="docx">Entity: 名称</mention-doc>
+- **来源**: <mention-doc token="<SOURCE_DOC_ID>" type="docx">Source: 标题</mention-doc>
+- **关联**: <mention-doc token="<ENTITY_DOC_ID>" type="docx">Entity: 名称</mention-doc>
 
 </callout>
 ```
@@ -187,8 +187,8 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 | 创建时间 | YYYY-MM-DD HH:mm |
 | 最后更新 | YYYY-MM-DD HH:mm |
 | 页面总数 | N |
-| AGENTS doc_id | doxcnAGENTS |
-| LOG doc_id | doxcnLOG |
+| AGENTS doc_id | <AGENTS_DOC_ID> |
+| LOG doc_id | <LOG_DOC_ID> |
 
 ## 页面注册表
 
@@ -208,12 +208,12 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 
 ## LOG 文档格式
 
-`wiki/LOG` 是 append-only 操作日志，格式同之前版本。每个条目以 `---` 分隔，时间戳使用 ISO 8601。
+`wiki/LOG` 是 append-only 操作日志。每个条目以 `---` 分隔，时间戳使用 ISO 8601，详见 [templates/pages.md](templates/pages.md) 的「日志条目模板」章节。
 
 ## 交叉引用规则
 
 ```html
-<mention-doc token="doxcnXXXX" type="docx">显示文本</mention-doc>
+<mention-doc token="<DOC_ID>" type="docx">显示文本</mention-doc>
 ```
 
 1. **token 必须使用 doc_id**（`doxcn...` 格式）
