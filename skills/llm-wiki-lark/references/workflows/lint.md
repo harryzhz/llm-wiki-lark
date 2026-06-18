@@ -42,7 +42,7 @@
    - **[D2 断链引用]** 提取页面内所有 mention-doc token，检查是否在注册表中存在
    - **[D8 交叉引用缺失]** 检查同类型或关联主题的页面之间是否缺少双向引用
    - **[D9 缺失页面-补充]** 统计页面正文中高频提及但无独立页面的实体/概念名称
-   - 元数据完整性：callout 字段是否齐全、必须段落是否存在
+   - 元数据完整性：callout 字段是否齐全、必须段落是否存在（标题按 [wiki-schema.md](../wiki-schema.md) 中各类型「等价」列做松匹配，如 `## 来源` ≡ `## 相关来源`）
 
 5. **源文档过时检查（脚本辅助）**
    - **[D10 源文档更新]** 从步骤 4 fetch 的所有 Source 类型页面中提取：
@@ -56,7 +56,8 @@
      输入格式: `[{"source_doc_id":"...","source_title":"...","raw_token":"...","raw_doc_type":"docx","recorded_update":"YYYY-MM-DD HH:mm"}]`
    - 解析脚本输出：
      - `stale` → D10 WARNING（展示源标题、记录时间、实际修改时间、时间差）
-     - `missing` → 补充 D2 断链引用证据
+     - `missing` → 仅表示 API 成功但 raw meta 未返回，补充 D2 断链引用证据
+     - `errors` 或脚本非 0 退出 → stale 检查失败，报告为独立检查错误并中止 D10 判断；不得将本批 raw token 归入 `missing`
 
    > D7 检查不同源文档之间的内容取代关系，D10 检查同一 raw 文档是否在 Source 页处理后被修改。
 

@@ -24,7 +24,7 @@ The skill is invoked via Claude Code's skill system (trigger: `llm wiki`, `知�
 
 ## Key Files
 
-- `skills/llm-wiki-lark/SKILL.md` — Skill entry point with frontmatter, prerequisites, operation overview, and lark-cli command reference
+- `skills/llm-wiki-lark/SKILL.md` — Skill entry point with frontmatter, prerequisites, operation overview, and workflow routing
 - `skills/llm-wiki-lark/references/wiki-schema.md` — Three-layer schema, page type specs, metadata callout format, INDEX/LOG format, cross-reference rules
 - `skills/llm-wiki-lark/references/templates/init.md` — Init templates for AGENTS.md, INDEX, LOG
 - `skills/llm-wiki-lark/references/templates/pages.md` — Runtime templates for Source, Entity/Concept/Comparison/Overview, and log entries
@@ -68,3 +68,12 @@ Automated enforcement: `scripts/security_check.sh` runs all 6 checks automatical
 ## Local State
 
 Config file: `~/.llm_wiki.setting.json` — stores per-wiki metadata (storage_type, space_id, root token, INDEX/AGENTS/LOG doc_ids, URLs, raw_subdirs). Supports multiple wikis via `wikis` array.
+
+## Auto-Pack on Skill Changes
+
+After modifying any file under `skills/llm-wiki-lark/`, repack the skill to `output/llm-wiki-lark.zip` (overwrite mode) so the distributable zip stays in sync.
+
+- Pack command: `bash scripts/auto_pack.sh` (wrapper around `skill-pack skills/llm-wiki-lark -o output/llm-wiki-lark.zip -f`)
+- Output: `output/` is gitignored; the zip is local-only and overwritten in place
+- Prerequisites: `skill-pack` CLI must be on `PATH`; if missing, `auto_pack.sh` prints a notice and exits without error
+- Convention for Claude Code: whenever an edit lands on any file in `skills/llm-wiki-lark/`, run `bash scripts/auto_pack.sh` before reporting the task complete

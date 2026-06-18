@@ -1,6 +1,6 @@
 ---
 name: llm-wiki-lark
-description: "LLM Wiki：在飞书云盘或知识库中构建三层目录架构的 LLM 知识库。支持云盘和知识库两种存储模式。支持知识库初始化(init)、素材导入(import)、源文档摄入(ingest)、知识查询(query)、健康检查(lint)。当用户需要将文档、文章、笔记整理成结构化知识库，或从已建知识库中检索、合成答案时使用。触发词：llm wiki, 知识库, 知识库摄入, 知识库查询, wiki ingest, wiki query, wiki lint, wiki init, wiki import, 添加素材, 添加文档到知识库, 添加原始素材, 导入素材"
+description: "LLM Wiki：在飞书云盘或知识库中构建三层 LLM 知识库，支持 init/import/ingest/query/lint。触发词：llm wiki, 知识库, wiki ingest, wiki query, wiki lint, wiki init, wiki import, 添加素材, 导入素材"
 ---
 
 # LLM Wiki on Lark
@@ -53,36 +53,12 @@ Step 2: 检查认证
 | **lint** | 检查矛盾、孤立页、断链等 → 生成报告 → 用户确认后修复 | [lint.md](references/workflows/lint.md) |
 
 
-## 工具命令速查
+## 命令参考
 
-| 操作 | 命令 |
-|------|------|
-| 创建文件夹 | `lark-cli drive files create_folder --as user --data '{"name":"xxx","folder_token":"父目录"}'` |
-| 创建文档（指定目录） | `lark-cli docs +create --as user --title "xxx" --folder-token <FOLDER> --markdown "..."` |
-| 读取文档 | `lark-cli docs +fetch --as user --doc <DOC_ID>` |
-| 追加内容 | `lark-cli docs +update --as user --doc <DOC_ID> --mode append --markdown "..."` |
-| 覆盖文档 | `lark-cli docs +update --as user --doc <DOC_ID> --mode overwrite --markdown "..."` |
-| 替换段落 | `lark-cli docs +update --as user --doc <DOC_ID> --mode replace_range --selection-by-title "## 标题" --markdown "..."` |
-| 重命名文档 | `lark-cli docs +update --as user --doc <DOC_ID> --new-title "新标题" --mode append --markdown " "` |
-| 下载文件 | `cd /tmp && lark-cli drive +download --file-token <TOKEN> --output ./<文件名>` |
-| 搜索文档 | `lark-cli docs +search --query "关键词"` |
-| 列出目录内容 | `lark-cli drive files list --as user --params '{"folder_token":"<FOLDER_TOKEN>"}'` |
-| 创建快捷方式 | `lark-cli drive +create-shortcut --as user --file-token <TOKEN> --type <docx\|file\|bitable\|doc\|sheet\|mindnote\|slides> --folder-token <FOLDER>` |
-| 上传文件到目录 | `lark-cli drive +upload --as user --file <本地绝对路径> --folder-token <FOLDER>` |
-| 移动文件/文档 | `lark-cli drive +move --as user --file-token <TOKEN> --type <docx\|file\|folder> --folder-token <TARGET>` |
-
-### 知识库模式命令速查
-
-| 操作 | 命令 |
-|------|------|
-| 获取节点信息 | `lark-cli wiki spaces get_node --as user --params '{"token":"<NODE_TOKEN>"}'` |
-| 创建节点 | `lark-cli wiki nodes create --as user --params '{"space_id":"<SPACE_ID>"}' --data '{"parent_node_token":"<PARENT>","obj_type":"docx","node_type":"origin","title":"xxx"}'` |
-| 列出子节点 | `lark-cli wiki nodes list --as user --params '{"space_id":"<SPACE_ID>","parent_node_token":"<NODE_TOKEN>"}'` |
-| 创建文档到节点 | `lark-cli docs +create --as user --title "xxx" --wiki-node <NODE_TOKEN> --markdown "..."` |
-
-> 知识库模式下，读取/更新/搜索文档的命令与云盘模式相同（`docs +fetch/+update/+search`）。完整命令参考见 [adapter/drive.md](references/adapter/drive.md) 和 [adapter/wiki.md](references/adapter/wiki.md)。
-
-**命令报错时**：以上为常用命令速查，不保证覆盖所有参数和用法。如果 `lark-cli` 命令执行报错，应使用 `lark-doc` / `lark-drive` / `lark-wiki` skill 获取完整的命令文档和示例。如未安装，可通过 `npx skills add larksuite/cli -y -g` 安装。
+- 云盘模式命令见 [Drive Adapter](references/adapter/drive.md)
+- 知识库模式命令见 [Wiki Adapter](references/adapter/wiki.md)
+- 读取、更新、搜索文档使用 `docs +fetch/+update/+search`
+- 命令报错时，使用 `lark-doc` / `lark-drive` / `lark-wiki` skill 获取完整参数和示例；如未安装，可通过 `npx skills add larksuite/cli -y -g` 安装。
 
 ## 其他参考文档
 

@@ -56,7 +56,7 @@ npx skills add harryzhz/llm-wiki-lark -y -g
 
 ### Other Agents
 
-Copy the `skills/llm-wiki-lark/` directory into your agent's context. The key file is `SKILL.md` — it contains the complete operation guide and command reference. The `references/` subdirectory provides schema definitions, templates, and step-by-step workflow procedures.
+Copy the `skills/llm-wiki-lark/` directory into your agent's context. The key file is `SKILL.md` — it routes operations to the right workflow and keeps core constraints close at hand. The `references/` subdirectory provides schema definitions, templates, command references, and step-by-step workflow procedures.
 
 ## Usage
 
@@ -105,7 +105,7 @@ Multiple wikis are supported. When more than one wiki exists, you'll be prompted
 
 ```
 skills/llm-wiki-lark/
-├── SKILL.md                           # Entry point + command reference
+├── SKILL.md                           # Entry point + workflow routing
 └── references/
     ├── wiki-schema.md                 # Page types, metadata format, INDEX/LOG spec
     ├── adapter/

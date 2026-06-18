@@ -31,7 +31,8 @@
      输入格式: `[{"source_doc_id":"...","source_title":"...","raw_token":"...","raw_doc_type":"docx","recorded_update":"YYYY-MM-DD HH:mm"}]`
    - 解析脚本输出，向用户报告：
      - **过时的 Source 页面**（raw 文档有更新）：建议重新摄入
-     - **缺失的 raw 文档**：标记为异常
+     - **缺失的 raw 文档**：仅当脚本 API 调用成功但未返回 raw meta 时标记为异常
+     - **检查错误**：如果输出含 `errors` 或脚本非 0 退出，说明认证、限流、网络或 API 响应异常；必须中止 stale 判断，不得把本批 token 当作缺失文档
      - **新鲜的 Source 页面**：无需处理
    - 用户确认后：
      - 对过时的 Source 页面：重新 fetch raw 文档内容，走后续 ingest 流程更新 Source 及关联页面
@@ -69,11 +70,12 @@
      - 拟提取的概念列表，每项标注：**新建** / **更新已有** + 简要理由
      - 不建页但会内联提及的项（低于建页门槛的实体/概念）
    - 用户可：添加遗漏项 / 移除不需要的项 / 合并相似项 / 直接确认
-   - 确认后进入步骤 6
+   - 确认后进入写入步骤
 
-6. **在 wiki/sources/ 创建 Source 摘要页**
+6. **在 wiki/sources/ 创建或更新 Source 摘要页**
    - 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 SOURCES_TOKEN 作为父文件夹，标题为 "Source: <标题>"，内容为 Source 模板
    - 记录 SOURCE_DOC_ID、SOURCE_DOC_URL
+   - 如果步骤 2 已确认既有 Source 过时，则更新该 Source；否则创建新的 Source 摘要页
    - 内容过长时改为：+create 仅写标题，再用 +update --mode append 追加内容
    - callout 块中必须使用列表格式（`- ` 前缀），飞书会吞掉 callout 内的空行导致字段合并为单行
    - `最后更新` 填入当前时间，精确到分钟（格式: YYYY-MM-DD HH:mm）
@@ -88,11 +90,13 @@
 
 9. **补充交叉引用**
    - 回填 Source 页面中的占位引用
+   - 更新相关页面的出链/入链信息，供 INDEX 结构化召回使用
 
 10. **更新 INDEX 页面注册表**
     - `docs +update --mode replace_range --selection-by-title "## 页面注册表"`
     - replace_range 会替换从该标题到下一个同级标题之间的全部内容（包括标题本身），所以替换内容必须以 "## 页面注册表" 开头，后跟完整的表头行和所有数据行（已有 + 新增），不要额外 append 新表
     - Doc 列使用 mention-doc 引用格式：`<mention-doc token="<doc_id>" type="docx"><文档标题></mention-doc>`
+    - 新增/更新行必须写入别名、标签、Raw Token、出链、入链、证据数、摘要；旧 INDEX 缺列时按空值读取，写回时补齐扩展列
 
 11. **追加 LOG**
     - `docs +update --mode append`

@@ -7,7 +7,8 @@
 #   [{"source_doc_id":"...","source_title":"...","raw_token":"...","raw_doc_type":"docx","recorded_update":"2025-03-15 14:30"}]
 #
 # 输出 (stdout): JSON 对象
-#   {"stale":[...],"missing":[...],"fresh":[...]}
+#   {"stale":[...],"missing":[...],"fresh":[...],"errors":[...]}
+#   当 lark-cli/API 失败时，errors 非空且脚本以非 0 退出；这些 token 不会进入 missing。
 #
 # 依赖: jq, lark-cli (已认证)
 # 兼容: bash 3.2+（macOS 默认）
@@ -16,6 +17,11 @@ set -euo pipefail
 
 BATCH_SIZE=50
 TOLERANCE_SECONDS=300  # 5 分钟容忍度
+ERROR_EXIT_CODE=1
+API_SUCCESS_CODE=0
+ERROR_KIND_EXIT_NONZERO="api_exit_nonzero"
+ERROR_KIND_INVALID_JSON="api_invalid_json"
+ERROR_KIND_API_CODE="api_code_nonzero"
 
 # ---------- 工具函数 ----------
 
@@ -46,18 +52,81 @@ normalize_timestamp() {
   fi
 }
 
+append_error() {
+  local context="$1"
+  local kind="$2"
+  local message="$3"
+  local response="$4"
+  ERRORS=$(echo "$ERRORS" | jq \
+    --arg context "$context" \
+    --arg kind "$kind" \
+    --arg message "$message" \
+    --arg response "$response" \
+    '. + [{"context": $context, "kind": $kind, "message": $message, "response": $response}]')
+}
+
+output_result() {
+  jq -n \
+    --argjson stale "$STALE" \
+    --argjson missing "$MISSING" \
+    --argjson fresh "$FRESH" \
+    --argjson errors "$ERRORS" \
+    '{"stale": $stale, "missing": $missing, "fresh": $fresh, "errors": $errors}'
+}
+
+query_lark_metas() {
+  local request_body="$1"
+  local context="$2"
+  local command_status
+  local api_code
+  local api_message
+
+  set +e
+  API_RESPONSE=$(lark-cli api --as user POST /open-apis/drive/v1/metas/batch_query \
+    --data "$request_body" 2>&1)
+  command_status=$?
+  set -e
+
+  if [ "$command_status" -ne 0 ]; then
+    append_error "$context" "$ERROR_KIND_EXIT_NONZERO" \
+      "lark-cli exited with status $command_status" "$API_RESPONSE"
+    return 1
+  fi
+
+  if ! echo "$API_RESPONSE" | jq -e . >/dev/null 2>&1; then
+    append_error "$context" "$ERROR_KIND_INVALID_JSON" \
+      "lark-cli returned non-JSON response" "$API_RESPONSE"
+    return 1
+  fi
+
+  api_code=$(echo "$API_RESPONSE" | jq -r '.code // empty')
+  if [ "$api_code" != "$API_SUCCESS_CODE" ]; then
+    api_message=$(echo "$API_RESPONSE" | jq -r '.msg // .message // "unknown API error"')
+    append_error "$context" "$ERROR_KIND_API_CODE" \
+      "Lark API returned code ${api_code:-missing}: $api_message" "$API_RESPONSE"
+    return 1
+  fi
+
+  return 0
+}
+
 # ---------- 主逻辑 ----------
 
 INPUT=$(cat)
+STALE="[]"
+MISSING="[]"
+FRESH="[]"
+ERRORS="[]"
+API_RESPONSE=""
 
 if [ -z "$INPUT" ] || [ "$INPUT" = "[]" ] || [ "$INPUT" = "null" ]; then
-  echo '{"stale":[],"missing":[],"fresh":[]}'
+  output_result
   exit 0
 fi
 
 ENTRY_COUNT=$(echo "$INPUT" | jq 'length')
 if [ "$ENTRY_COUNT" -eq 0 ]; then
-  echo '{"stale":[],"missing":[],"fresh":[]}'
+  output_result
   exit 0
 fi
 
@@ -81,13 +150,15 @@ while [ "$batch_start" -lt "$TOKEN_COUNT" ]; do
 
   REQUEST_BODY=$(jq -n --argjson docs "$REQUEST_DOCS" '{"request_docs": $docs}')
 
-  # 调用 Lark API
-  RESPONSE=$(lark-cli api --as user POST /open-apis/drive/v1/metas/batch_query \
-    --data "$REQUEST_BODY" 2>/dev/null || echo '{}')
+  # 调用 Lark API。失败必须进入 errors，不能降级成 missing。
+  if ! query_lark_metas "$REQUEST_BODY" "batch:${batch_start}-${batch_end}:doc_type=as_registered"; then
+    output_result
+    exit "$ERROR_EXIT_CODE"
+  fi
 
   # 解析响应，将每个 doc 的 modified_time 写入映射
   # 响应格式: {"code":0,"data":{"metas":[{"doc_token":"...","latest_modify_time":"unix_ts_string",...}]}}
-  METAS=$(echo "$RESPONSE" | jq -r '.data.metas // []')
+  METAS=$(echo "$API_RESPONSE" | jq -r '.data.metas // []')
   META_COUNT=$(echo "$METAS" | jq 'length')
 
   idx=0
@@ -108,9 +179,11 @@ while [ "$batch_start" -lt "$TOKEN_COUNT" ]; do
     existing=$(echo "$MODIFIED_MAP" | jq -r --arg k "$token" '.[$k] // ""')
     if [ -z "$existing" ] && [ "$doc_type" = "docx" ]; then
       RETRY_BODY=$(jq -n --arg t "$token" '{"request_docs": [{"doc_token": $t, "doc_type": "file"}]}')
-      RETRY_RESP=$(lark-cli api --as user POST /open-apis/drive/v1/metas/batch_query \
-        --data "$RETRY_BODY" 2>/dev/null || echo '{}')
-      retry_time=$(echo "$RETRY_RESP" | jq -r '.data.metas[0].latest_modify_time // .data.metas[0].edit_time // "0"')
+      if ! query_lark_metas "$RETRY_BODY" "retry:${token}:doc_type=file"; then
+        output_result
+        exit "$ERROR_EXIT_CODE"
+      fi
+      retry_time=$(echo "$API_RESPONSE" | jq -r '.data.metas[0].latest_modify_time // .data.metas[0].edit_time // "0"')
       if [ "$retry_time" != "0" ] && [ "$retry_time" != "null" ]; then
         MODIFIED_MAP=$(echo "$MODIFIED_MAP" | jq --arg k "$token" --arg v "$retry_time" '. + {($k): $v}')
       fi
@@ -120,11 +193,6 @@ while [ "$batch_start" -lt "$TOKEN_COUNT" ]; do
 
   batch_start=$batch_end
 done
-
-# 逐条比较，生成结果
-STALE="[]"
-MISSING="[]"
-FRESH="[]"
 
 idx=0
 while [ "$idx" -lt "$ENTRY_COUNT" ]; do
@@ -171,5 +239,4 @@ while [ "$idx" -lt "$ENTRY_COUNT" ]; do
 done
 
 # 输出最终结果
-jq -n --argjson stale "$STALE" --argjson missing "$MISSING" --argjson fresh "$FRESH" \
-  '{"stale": $stale, "missing": $missing, "fresh": $fresh}'
+output_result
