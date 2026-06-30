@@ -4,7 +4,9 @@
 
 ## 前置条件
 
-- 已 fetch AGENTS 文档查看规范
+- 已 fetch AGENTS 文档查看规范（`lark-cli docs +fetch --doc <AGENTS_DOC_ID> --doc-format markdown`）
+
+> **命令约定**：本工作流所有读取用 `docs +fetch ... --doc-format markdown`（正文在 `.data.document.content`）；所有修复用 `docs +update ...`，按场景选 `--command append` / `--command overwrite` / `--command str_replace`（均加 `--doc-format markdown`）。INDEX 注册表/配置的写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」（整篇重建 + overwrite 首选，str_replace 备选）。
 
 ## 检查维度
 
@@ -13,7 +15,7 @@
 | # | 维度 | 说明 | 检查时机 | 严重级别 |
 |---|------|------|---------|---------|
 | D1 | 空白页面 | 仅有标题或元数据 callout、缺少实质内容 | 全量 fetch | ERROR |
-| D2 | 断链引用 | mention-doc 指向不存在的 doc_id | 全量 fetch | ERROR |
+| D2 | 引用格式与断链 | `<cite type="doc" doc-id="...">` 指向不存在的 doc_id，或页面仍含会被文本化的旧 `<mention-doc>` | 全量 fetch | ERROR |
 | D3 | 未索引页面 | wiki/ 子目录中实际存在但未在 INDEX 注册表中登记的页面 | 目录扫描 | ERROR |
 | D4 | 重复页面 | 标题或内容高度相似的页面，应合并 | INDEX + 全量 fetch | WARNING |
 | D5 | 孤立页面 | 无入链的页面，缺乏知识网络连接 | INDEX | WARNING |
@@ -25,7 +27,10 @@
 
 ## 步骤
 
-1. **从 `~/.llm_wiki.setting.json` 读取配置**（含 storage_type、space_id），获取 INDEX → 解析注册表
+1. **从 `~/.llm_wiki.setting.json` 读取配置**（含 storage_type、space_id），fetch INDEX → 解析注册表
+   ```bash
+   lark-cli docs +fetch --doc <INDEX_DOC_ID> --doc-format markdown
+   ```
 
 2. **目录扫描**（对比 INDEX 注册表与 wiki/ 子目录的实际内容）
    - **[D3 未索引页面]** 逐个扫描 wiki/sources、wiki/entities、wiki/concepts、wiki/comparisons、wiki/overviews 五个子目录：参照 `adapter/<STORAGE_TYPE>.md`「列出子项」命令获取每个子目录的实际文件列表
@@ -36,17 +41,17 @@
    - **[D4 重复页面-标题级]** 检查注册表中标题相似的条目（如同名 Entity/Concept、中英文同义词、去掉前缀后相同），记录疑似重复组
    - **[D9 缺失页面-初筛]** 扫描所有页面「关联」列中引用的 doc_id，找出未在注册表中注册的条目
 
-4. **全量 fetch 检查**（逐页 fetch 所有注册页面，确保无遗漏）
+4. **全量 fetch 检查**（逐页 fetch 所有注册页面，确保无遗漏；每页用 `lark-cli docs +fetch --doc <DOC_ID> --doc-format markdown` 取正文）
    - **[D1 空白页面]** 检查页面内容：如果仅有标题、或仅有元数据 callout 而无实质段落内容 → 标记为空白页
    - **[D4 重复页面-内容级]** 对步骤 3 标题相似的疑似重复组，fetch 后对比内容确认是否为真正重复
-   - **[D2 断链引用]** 提取页面内所有 mention-doc token，检查是否在注册表中存在
+   - **[D2 引用格式与断链]** 提取页面内所有 `<cite type="doc" doc-id="...">` 引用，检查是否在注册表中存在；若正文或 INDEX 中出现旧 `<mention-doc ...>`，直接标记为 ERROR，因为 v2 写入会把它渲染成普通文本
    - **[D8 交叉引用缺失]** 检查同类型或关联主题的页面之间是否缺少双向引用
    - **[D9 缺失页面-补充]** 统计页面正文中高频提及但无独立页面的实体/概念名称
    - 元数据完整性：callout 字段是否齐全、必须段落是否存在（标题按 [wiki-schema.md](../wiki-schema.md) 中各类型「等价」列做松匹配，如 `## 来源` ≡ `## 相关来源`）
 
 5. **源文档过时检查（脚本辅助）**
    - **[D10 源文档更新]** 从步骤 4 fetch 的所有 Source 类型页面中提取：
-     - `原始来源` mention-doc 中的 raw token
+     - `原始来源` 中 `<cite type="doc" doc-id="..."></cite>` 或 `<source token="..."></source>` 的 raw token
      - `最后更新` 中的时间戳
      - raw token 的文档类型：飞书文档/外部链接转文档 → `docx`；上传文件 → `file`；不确定时默认 `docx`
    - 构造 JSON 数组，调用检查脚本：
@@ -81,13 +86,17 @@
    - [ ] D10 源文档更新
 
 8. **生成报告**（按严重级别分组）
-   - **ERROR**: D1 空白页面、D2 断链引用、D3 未索引页面、缺失必须段落
+   - **ERROR**: D1 空白页面、D2 引用格式与断链、D3 未索引页面、缺失必须段落
    - **WARNING**: D4 重复页面、D5 孤立页面、D6 矛盾声明、D7 过时内容、D10 源文档更新
    - **INFO**: D8 交叉引用缺失
    - **SUGGESTION**: D9 缺失页面、建议探索的新问题、推荐寻找的新源
 
-9. **用户确认后执行修复**
-   - 自动修复: 补充交叉引用、修复断链
-   - 需确认: 删除/补充空白页、合并重复页、更新过时内容、创建缺失页面、重新摄入已更新的源文档（re-ingest）
+9. **用户确认后执行修复**（均通过 `lark-cli docs +update --doc <DOC_ID> ... --doc-format markdown`）
+   - 自动修复: 补充交叉引用、修复断链、将旧 `<mention-doc token="X"...>` 替换为 `<cite type="doc" doc-id="X"></cite>`（文件附件替换为 `<source token="X" name="..."></source>`）→ `--command str_replace --pattern '旧片段' --content '新片段'` 精确改写相关段落
+   - 需确认:
+     - 补充空白页内容 → `--command append --content -`（追加缺失段落）
+     - 删除空白页 / 合并重复页 / 更新过时内容 / 重新摄入已更新的源文档（re-ingest）→ 整页重写用 `--command overwrite --content -`（markdown 内容须以页面 `# 一级标题` 开头以保留标题），局部修订用 `--command str_replace`
+     - 创建缺失页面 → 参照 `adapter/<STORAGE_TYPE>.md` 的页面创建命令（`docs +create`）
+   - INDEX 注册表 / 配置的同步写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」（整篇重建 + overwrite 首选）
 
 10. **更新 LOG**

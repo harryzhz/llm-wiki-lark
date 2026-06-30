@@ -16,11 +16,11 @@
    - **轻量重排**：综合标题/别名命中、标签命中、关联路径、正文搜索命中、页面类型和证据覆盖度排序。Source 提供一手证据，Entity/Concept 提供定义和事实，Comparison/Overview 提供综合判断。
 
 3. **按证据覆盖 fetch 页面**
-   - 默认 fetch 3-5 个最相关页面。
+   - 默认 fetch 3-5 个最相关页面，命令：`lark-cli docs +fetch --as user --doc <DOC> --doc-format markdown`（正文在 `.data.document.content`；可用 `--scope`/`--keyword`/`--max-depth` 做局部读取）。
    - 若问题覆盖多个实体/概念、需要对比，或初读后证据不足，可扩展到最多 8 个页面。
    - fetch 后若发现关键证据缺口，回到步骤 2 追加召回；不要只因标题不匹配就放弃正文相关页面。
 
-4. **综合回答**（引用 mention-doc），回答形式根据问题类型灵活选择：
+4. **综合回答**（引用飞书文档时使用 `<cite type="doc" doc-id="..."></cite>`），回答形式根据问题类型灵活选择：
    - Markdown 文档（默认）
    - 对比表格（Comparison）
    - 幻灯片（Marp）
@@ -41,8 +41,9 @@
    当判断为「推荐归档」时：
    - 主动向用户推荐，展示拟创建的页面标题和存放目录
    - 用户确认后立即创建页面、补充交叉引用、更新 INDEX 和 LOG
-   - Comparison → 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 COMPARISONS_TOKEN 作为父文件夹
-   - Overview/综述 → 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 OVERVIEWS_TOKEN 作为父文件夹
+   - 创建页面统一两步：先 `lark-cli docs +create --as user --parent-token <PARENT_TOKEN> --content '<title><TITLE></title>'` 写骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown` 追加
+   - Comparison → 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 COMPARISONS_TOKEN 作为 `--parent-token`
+   - Overview/综述 → 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 OVERVIEWS_TOKEN 作为 `--parent-token`
    - 归档后补充交叉引用，让新页面融入已有知识网络
    - 用户拒绝则跳过，在 LOG 中记录「归档: 无（用户跳过）」
 
@@ -53,7 +54,9 @@
    - 为某个 Concept 补充了新的来源或解释 → 更新该 Concept 的「来源」和「详细说明」
    - 修正了某页面的过时信息 → 更新该页面内容和 callout 中的「最后更新」
 
-   更新方式：使用 `docs +update --mode replace_range` 精确替换相关段落，避免全量覆盖。
+   更新方式：使用 `docs +update --command str_replace --doc-format markdown`（`--pattern` 支持「前缀...后缀」省略号匹配）精确替换相关段落，避免全量覆盖。
    更新前向用户简要说明要更新哪些页面及原因。
 
 7. **更新 INDEX 和 LOG**
+   - **INDEX 页面注册表**：LLM 已持有 INDEX 全量内容，合并新增/变更行后整篇重建，用 `lark-cli docs +update --as user --doc <INDEX_DOC_ID> --command overwrite --doc-format markdown --content -`（heredoc 传入，内容须以 `# INDEX` 一级标题开头以保留标题）；仅改个别字段（如「页面总数」「最后更新」）时用 `--command str_replace --doc-format markdown` 精确替换那一行。**不要用 append 追加新表**——append 出的表格行不会并入原表。
+   - **LOG**：用 `lark-cli docs +update --as user --doc <LOG_DOC_ID> --command append --doc-format markdown --content "<日志条目>"` 追加。

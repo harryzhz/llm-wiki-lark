@@ -55,6 +55,16 @@ Wiki 的结构约定和 LLM 行为规范文档。定义：
 
 **写入方式**: raw/ 由用户负责写入，LLM 只读不写。用户将原始素材放入对应子目录后通知 LLM 进行摄入处理。
 
+#### Raw 装配模式（init 时确定，记录在 INDEX「Wiki 配置」的 `raw_mode`）
+
+| 模式 | 含义 | INDEX 目录配置 | 下游枚举方式 |
+|------|------|---------------|-------------|
+| `create`（默认） | 本 wiki 新建 `raw/` 及上表子目录 | `raw` + 各 `raw/<子目录>` 静态行 | 读 INDEX 静态子目录行 |
+| `reference` | 引用一棵已有节点树（如现有知识库目录）为 raw 层 | 仅 `raw` 一行，指向**原节点真实导航 token**（wiki=node_token，drive=folder_token），无 `raw/<子目录>` 行 | 用 `scripts/list_raw_tree.sh` 实时递归枚举原树，感知后续新增 |
+| `none` | 不创建 raw 层 | `raw` 行为 `-` | — |
+
+> **reference 模式**：raw 登记的是原节点的真实导航 token，**不是快捷方式 token**（快捷方式节点无法被 list 遍历出子树）。原树原地不动、由其维护者增删；本 wiki 在每次 ingest 时实时枚举原树，无需把素材搬进来。原树可与本 wiki root 不在同一 space，故 INDEX 另存 `raw_source_space_id`，下游 `list_raw_tree.sh` 必须用它而非 root 的 space_id。
+
 ### Wiki 层 — `wiki/`
 
 LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
@@ -78,9 +88,9 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 - 元数据 callout
 - `## 摘要`（等价：`## 概要`）— 核心观点 3-5 句话
 - `## 关键要点`（等价：`## 核心要点`、`## 要点`）— 要点列表
-- `## 提取的实体`（等价：`## 实体`、`## 涉及的实体`）— 使用 `<mention-doc>` 链接
-- `## 提取的概念`（等价：`## 概念`、`## 涉及的概念`）— 使用 `<mention-doc>` 链接
-- `## 原始来源`（等价：`## 原始素材`）— 使用 `<mention-doc>` 引用 raw/ 下的素材（docx 文档和上传文件统一使用 `type="docx"`）
+- `## 提取的实体`（等价：`## 实体`、`## 涉及的实体`）— 使用 `<cite type="doc" doc-id="..."></cite>` 链接
+- `## 提取的概念`（等价：`## 概念`、`## 涉及的概念`）— 使用 `<cite type="doc" doc-id="..."></cite>` 链接
+- `## 原始来源`（等价：`## 原始素材`）— docx 素材使用 `<cite type="doc" doc-id="..."></cite>`；上传文件素材使用 `<source token="..." name="..."></source>`
 
 > **等价标题说明**: lint 在做必须段落检查时按"等价"列接受替代标题。新建页面建议优先使用主标题以保持一致性。
 
@@ -145,8 +155,8 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 - **类型**: source | entity | concept | comparison | overview
 - **创建时间**: YYYY-MM-DD HH:mm
 - **最后更新**: YYYY-MM-DD HH:mm
-- **来源**: <mention-doc token="<SOURCE_DOC_ID>" type="docx">Source: 标题</mention-doc>
-- **关联**: <mention-doc token="<ENTITY_DOC_ID>" type="docx">Entity: 名称</mention-doc>
+- **来源**: <cite type="doc" doc-id="<SOURCE_DOC_ID>"></cite>
+- **关联**: <cite type="doc" doc-id="<ENTITY_DOC_ID>"></cite>
 
 </callout>
 ```
@@ -177,6 +187,7 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 
 > Token 列：云盘模式存 `folder_token`（fldcn...），知识库模式存 `node_token`（wikcn...）。
 > raw/ 子目录行数量和名称由 init 时用户确认的列表决定。
+> **reference 模式**：只有 `raw` 一行（指向被引用原节点的真实导航 token），没有 `raw/<子目录>` 行；子目录由下游 `list_raw_tree.sh` 实时枚举。
 
 ```markdown
 ## Wiki 配置
@@ -186,6 +197,9 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 | wiki_name | <用户自定义名称> |
 | storage_type | drive 或 wiki |
 | space_id | <知识空间ID，仅 wiki 模式> |
+| raw_mode | create / reference / none |
+| raw_source_token | <reference 模式：原节点真实导航 token；否则 -> |
+| raw_source_space_id | <reference + wiki：原树 space_id；否则 -> |
 | 创建时间 | YYYY-MM-DD HH:mm |
 | 最后更新 | YYYY-MM-DD HH:mm |
 | 页面总数 | N |
@@ -200,7 +214,7 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 
 ### 页面注册表字段说明
 
-- **Doc**: 使用 mention-doc 引用格式: `<mention-doc token="<doc_id>" type="docx"><文档标题></mention-doc>`，飞书会渲染为可点击的文档引用卡片
+- **Doc**: 使用 v2 XML 文档引用格式: `<cite type="doc" doc-id="<doc_id>"></cite>`，飞书会渲染为可点击的文档引用卡片；`<cite>` 不承载自定义显示文本，标题由飞书根据目标文档自动渲染
 - **扩展索引字段**: 新版本 INDEX 应使用以下完整表头，旧 INDEX 缺列时按空值兼容读取，下一次写回注册表时补齐：
 
 ```markdown
@@ -217,9 +231,18 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 
 ### 索引操作规则
 
-- **读取**: `lark-cli docs +fetch --doc <INDEX_DOC_ID>` → 解析获得 token 映射（云盘为 folder_token，知识库为 node_token）和页面注册表
-- **更新注册表**: `docs +update --mode replace_range --selection-by-title "## 页面注册表"`
-- **更新配置**: `docs +update --mode replace_range --selection-by-title "## Wiki 配置"`
+- **读取**: `lark-cli docs +fetch --doc <INDEX_DOC_ID> --doc-format markdown` → 正文在 `.data.document.content`，解析获得 token 映射（云盘为 folder_token，知识库为 node_token）和页面注册表
+- **更新注册表 / 更新配置（首选：整篇重建 + overwrite）**: INDEX 完全由 LLM 拥有，每次操作开始已 fetch 读全。合并新增/变更后整体重写——
+  ```
+  lark-cli docs +update --doc <INDEX_DOC_ID> --command overwrite --doc-format markdown --content - <<'EOF'
+  # INDEX
+
+  ...（完整三节：目录配置 / Wiki 配置 / 页面注册表，含全部已有+新增行）...
+  EOF
+  ```
+  ⚠️ overwrite 会清空重写，markdown 内容**必须以 `# INDEX` 一级标题开头**以保留文档标题。
+- **小改动备选（targeted str_replace）**: 仅改个别字段（如「页面总数」「最后更新」）时，用 `docs +update --doc <INDEX_DOC_ID> --command str_replace --doc-format markdown --pattern '旧片段' --content '新片段'` 精确替换那一行，避免重写整篇。
+- 不要 append 新表行——append 出的表格行不会并入原表，会成为孤立 block。
 
 ## LOG 文档格式
 
@@ -228,10 +251,12 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 ## 交叉引用规则
 
 ```html
-<mention-doc token="<DOC_ID>" type="docx">显示文本</mention-doc>
+<cite type="doc" doc-id="<DOC_ID>"></cite>
 ```
 
-1. **token 必须使用 doc_id**（`doxcn...` 格式）
-2. **type 固定为 docx**
-3. **双向链接** — 创建 A 引用 B 时，也应更新 B 引用 A
-4. 从 INDEX 页面注册表中查找 doc_id
+1. **doc-id 必须使用 doc_id / obj_token**（即文档 token）
+2. `<cite>` 不写标签体；需要补充说明时写在标签后，例如：`<cite type="doc" doc-id="<DOC_ID>"></cite> — 说明`
+3. 上传文件附件使用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`，不要伪装成文档引用
+4. **禁止使用旧格式 `<mention-doc ...>`**；在 v2 写入中它会被当作普通文本转义，lint 必须标为 ERROR
+5. **双向链接** — 创建 A 引用 B 时，也应更新 B 引用 A
+6. 从 INDEX 页面注册表中查找 doc_id

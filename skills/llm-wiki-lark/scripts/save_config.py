@@ -9,6 +9,7 @@ save_config.py — 将 init 结果写入 ~/.llm_wiki.setting.json 并输出 JSON
   AGENTS_DOC_ID, AGENTS_DOC_URL
   LOG_DOC_ID, LOG_DOC_URL
   RAW_SUBDIRS（空格分隔）
+  RAW_MODE, RAW_SOURCE_TOKEN, RAW_SOURCE_SPACE_ID（raw 装配模式）
 """
 
 import json
@@ -30,6 +31,9 @@ entry = {
     "agents_doc_url": os.environ.get("AGENTS_DOC_URL", ""),
     "log_doc_id":   os.environ["LOG_DOC_ID"],
     "log_doc_url":  os.environ.get("LOG_DOC_URL", ""),
+    "raw_mode":     os.environ.get("RAW_MODE", "create"),
+    "raw_source_token":    os.environ.get("RAW_SOURCE_TOKEN", ""),
+    "raw_source_space_id": os.environ.get("RAW_SOURCE_SPACE_ID", ""),
     "raw_subdirs":  os.environ.get("RAW_SUBDIRS", "").split(),
     "created_at":   os.environ["TODAY"],
 }

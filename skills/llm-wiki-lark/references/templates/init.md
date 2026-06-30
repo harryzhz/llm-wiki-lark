@@ -38,13 +38,13 @@ AGENTS.md 是整个 Wiki 的核心配置文件。它让 LLM 从通用聊天机�
 
 ## 引用规范
 
-- 文档内所有对云盘文档/文件的引用统一使用 `<mention-doc token="doc_id 或 file_token" type="docx">标题</mention-doc>`
+- 文档内所有对云盘文档的引用统一使用 `<cite type="doc" doc-id="doc_id"></cite>`；上传文件附件使用 `<source token="file_token" name="文件名"></source>`
 - 禁止在文档内容中使用云盘文档/文件的原始 URL（外部链接不受此限制）
-- INDEX 页面注册表的 Doc 列同样使用 mention-doc 格式
+- INDEX 页面注册表的 Doc 列同样使用 `<cite type="doc" doc-id="doc_id"></cite>`
 
 ## 工作流规则
 
-- **ingest**: 用户将素材放入 raw/ 后通知 LLM → LLM 从 raw/ 读取内容 → 在 wiki/ 创建 Source 摘要和关联页面 → Source 页的「原始来源」用 mention-doc 引用 raw/ 下的素材
+- **ingest**: 用户将素材放入 raw/ 后通知 LLM → LLM 从 raw/ 读取内容 → 在 wiki/ 创建 Source 摘要和关联页面 → Source 页的「原始来源」用 cite/source 引用 raw/ 下的素材
 - **query**: 从 INDEX 定位相关页面 → fetch 并综合回答 → 有价值的回答归档为 Overview/Comparison 回流到 wiki
 - **lint**: 检查矛盾、过时声明、孤立页、缺失页面、断链、交叉引用缺失 → 生成报告 → 建议新问题和新源
 
@@ -94,6 +94,7 @@ LLM Wiki 索引 — 所有页面的注册表和导航入口。
 
 > `{{RAW_SUBDIRS}}` 在 init 时按用户确认的 raw/ 子目录列表展开，每行格式：`| raw/<子目录名> | <token> |`。
 > 默认子目录：papers, articles, repos, datasets, images, assets。用户可在 init 时增删改。
+> **reference 模式**：`{{RAW_SUBDIRS}}` 留空，`raw` 行直接指向被引用原节点的导航 token，子目录不静态登记。
 
 ## Wiki 配置
 
@@ -102,6 +103,9 @@ LLM Wiki 索引 — 所有页面的注册表和导航入口。
 | wiki_name | {{WIKI_NAME}} |
 | storage_type | {{STORAGE_TYPE}} |
 | space_id | {{SPACE_ID}} |
+| raw_mode | {{RAW_MODE}} |
+| raw_source_token | {{RAW_SOURCE_TOKEN}} |
+| raw_source_space_id | {{RAW_SOURCE_SPACE_ID}} |
 | 创建时间 | {{YYYY-MM-DD HH:mm}} |
 | 最后更新 | {{YYYY-MM-DD HH:mm}} |
 | 页面总数 | 0 |
@@ -110,6 +114,7 @@ LLM Wiki 索引 — 所有页面的注册表和导航入口。
 
 > - `storage_type`：`drive`（云盘，默认）或 `wiki`（知识库）
 > - `space_id`：仅知识库模式需要，云盘模式填 `-`
+> - `raw_mode`：`create`（自建 raw/ 子目录）/ `reference`（引用现有节点树）/ `none`；reference 模式 `raw_source_token`、`raw_source_space_id` 填原树 token 与 space_id，其余模式填 `-`
 
 ## 页面注册表
 

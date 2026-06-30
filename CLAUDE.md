@@ -34,11 +34,11 @@ The skill is invoked via Claude Code's skill system (trigger: `llm wiki`, `知�
 
 ## Critical Conventions
 
-- **All Feishu doc/file references must use `<mention-doc token="doc_id_or_file_token" type="docx">` — raw URLs are forbidden** for cloud drive documents
+- **All Feishu document references must use `<cite type="doc" doc-id="doc_id"></cite>`; uploaded file attachments use `<source token="file_token" name="filename"></source>` — raw URLs are forbidden** for cloud drive documents
 - **Callout blocks use list format** (`- ` prefix per field) — Feishu swallows blank lines inside callouts, causing field merging
 - **Section headings must not be duplicated** within a page (e.g., two `## 相关实体` blocks)
 - **INDEX updates via `replace_range --selection-by-title`** replace everything between that heading and the next same-level heading, so the replacement must include the heading itself plus all rows (existing + new)
-- **Page creation order matters** — create pages sequentially so earlier doc_ids are available for later mention-doc references
+- **Page creation order matters** — create pages sequentially so earlier doc_ids are available for later cite references
 - **Incremental updates preferred** — use `append` or `replace_range` over `overwrite` when possible
 
 ## Runtime Dependencies

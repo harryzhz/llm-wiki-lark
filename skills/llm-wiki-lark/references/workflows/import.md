@@ -20,7 +20,9 @@
 
 ## 目录分类规则
 
-raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读取。根据子目录名称做智能匹配：
+> **适用范围**：本节的「按子目录名自动归类」仅用于 `raw_mode=create`。`raw_mode=reference` 见下方「reference 模式」说明。
+
+create 模式下，raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读取。根据子目录名称做智能匹配：
 
 | 子目录名称 | 自动匹配条件（按优先级） |
 |-----------|----------------------|
@@ -35,19 +37,28 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 > - 如有歧义或无法确定目标子目录，向用户确认后再继续。
 > - 若只有一个 raw/ 子目录，直接使用无需匹配。
 
+### reference 模式
+
+`raw_mode=reference` 时，raw 是一棵外部维护的现有树，没有静态 `raw/<子目录>` 行，**不适用上面的自动归类**：
+
+- raw 层主要由原树维护者直接增删，import 不是主路径；新素材一般由用户在原树里直接添加，再由 ingest 步骤 1.5 实时枚举感知。
+- 若确需通过本流程把一篇飞书文档/本地文件放进原树某子目录：用 `scripts/list_raw_tree.sh`（或 `wiki nodes list` / `drive files list`）实时列出原树的容器型子节点（`is_container=true`），向用户展示供选择，把选中节点的导航 token 作为 TARGET_TOKEN。
+
 ## 步骤
 
 ### 步骤 1：获取 INDEX，读取目录配置
 
 - 读取 `~/.llm_wiki.setting.json` 获取 INDEX_DOC_ID、STORAGE_TYPE、SPACE_ID
-- `lark-cli docs +fetch --as user --doc <INDEX_DOC_ID>`
-- 解析「目录配置」表，提取所有 raw/ 子目录的 token → 构建映射 `{子目录名 → token}`
-- 解析「Wiki 配置」获取 LOG_DOC_ID、确认 storage_type
+- `lark-cli docs +fetch --as user --doc <INDEX_DOC_ID> --doc-format markdown`
+- 解析「Wiki 配置」获取 LOG_DOC_ID、storage_type、**raw_mode**（及 reference 模式的 raw_source_token / raw_source_space_id）
+- **create 模式**：解析「目录配置」表，提取所有 raw/ 子目录的 token → 构建映射 `{子目录名 → token}`
+- **reference 模式**：无静态子目录行，按「reference 模式」一节用 `list_raw_tree.sh` 实时列出可选目标节点
 
 ### 步骤 2：识别素材类型和目标目录
 
 - 根据「素材类型识别」表确定处理分支（A / B / C）
-- 根据「目录分类规则」和 INDEX 中的 raw/ 子目录列表确定目标子目录，记录 TARGET_TOKEN（对应 token）和 TARGET_SUBDIR（如 `raw/papers/`）
+- **create 模式**：根据「目录分类规则」和 INDEX 中的 raw/ 子目录列表确定目标子目录，记录 TARGET_TOKEN（对应 token）和 TARGET_SUBDIR（如 `raw/papers/`）
+- **reference 模式**：从实时枚举的原树容器型子节点中由用户选定 TARGET_TOKEN（见「目录分类规则 → reference 模式」）
 - 如有歧义，向用户确认
 
 ### 步骤 3：执行导入操作（按分支执行）
@@ -58,7 +69,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
   - URL 格式：取 `/docx/` 后的路径段
   - 纯 token 格式：直接使用
 - 记录 SOURCE_DOC_ID
-- 验证文档可访问：`lark-cli docs +fetch --as user --doc <SOURCE_DOC_ID>`（读取标题，确认存在）
+- 验证文档可访问：`lark-cli docs +fetch --as user --doc <SOURCE_DOC_ID> --doc-format markdown`（读取标题，确认存在）
 - 记录 TITLE
 - **⚠️ 阻断操作：执行前必须向用户确认导入方式（默认快捷方式）**：
 
@@ -72,7 +83,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 - 根据用户选择执行：
   - **选择 1（快捷方式，默认）**：参照 `adapter/<STORAGE_TYPE>.md`「创建快捷方式」执行对应命令；若为 `drive` 模式，优先使用 `lark-cli drive +create-shortcut`
   - **选择 2（直接移动）**：参照 `adapter/<STORAGE_TYPE>.md`：drive 模式见「移动文档」，wiki 模式见「移动节点」
-- 记录 RAW_REFERENCE = `<mention-doc token="<SOURCE_DOC_ID>" type="docx"><TITLE></mention-doc>`
+- 记录 RAW_REFERENCE = `<cite type="doc" doc-id="<SOURCE_DOC_ID>"></cite>`
 
 **分支 B — 本地文件**
 
@@ -80,7 +91,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 - 从路径提取 FILENAME，默认 TITLE = 去掉扩展名的文件名（用户可覆盖）
 - 上传文件：参照 `adapter/<STORAGE_TYPE>.md`「上传文件」执行对应命令
 - 从返回结果中提取 FILE_TOKEN，记录 FILE_TOKEN
-- 记录 RAW_REFERENCE = `<mention-doc token="<FILE_TOKEN>" type="docx"><FILENAME></mention-doc>`
+- 记录 RAW_REFERENCE = `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`
 
 **分支 C — 外部链接**
 
@@ -106,9 +117,9 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 - **向用户展示内容预览**（标题 + 字符数/段落数统计 + 媒体数量 + 前 3 段），确认抓取内容符合预期后再创建文档
   - 若抓取内容明显不完整（字符数异常少、缺少预期章节），提示用户考虑手动复制后走分支 B
 - 从 webclip-cli 输出的 `markdown` 中，将图片 `![alt](images/img_NNN.ext)` 替换为行内占位符 `[图N: alt]`，将视频/音频标签替换为 `[视频N]` / `[音频N]`，标记媒体在原文的位置
-- 在 raw/ 对应子目录创建飞书文档：参照 `adapter/<STORAGE_TYPE>.md`「创建文档」执行对应命令，markdown 内容为来源注释 + 正文前 N 字符
-  - `+create` 先写入来源注释和尽量多的正文（单次 markdown 参数有长度限制）
-  - 剩余文本内容按 **≤ 4000 字符/块** 分块，循环用 `+update --mode append` 追加，直到全部内容写入完毕
+- 在 raw/ 对应子目录创建飞书文档：参照 `adapter/<STORAGE_TYPE>.md`「创建文档」执行对应命令
+  - `+create` 仅写 `<title><TITLE></title>` 骨架（父节点用 `--parent-token <TARGET_TOKEN>`），拿到 RAW_DOC_ID
+  - 正文（来源注释 + 完整正文）按 **≤ 4000 字符/块** 分块，循环用 `+update --as user --doc <RAW_DOC_ID> --command append --doc-format markdown` 追加，直到全部内容写入完毕；长内容/含特殊字符的块用 stdin + 带单引号 heredoc 传 `--content -`
   - **不得因内容过长而截断或省略——必须全部写入**
 - 来源注释格式（置于文档最顶部）：
   ```markdown
@@ -127,13 +138,13 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
     lark-cli docs +media-insert --doc <RAW_DOC_ID> \
       --file <localPath> --type file
     ```
-  - **禁止用 `drive +upload` + `mention-doc` 处理媒体**——那只会创建文件附件卡片，无法内嵌显示
+  - **禁止用 `drive +upload` + 文档引用处理媒体**——那只会创建文件附件卡片，无法内嵌显示
   - 对 MEDIA_LIST 中 `success: false` 的项，在文档末尾追加文本兜底：
     ```markdown
     **[图N/视频N/音频N 下载失败]** alt: <alt text> | 原始地址: <originalUrl>
     ```
   - 所有媒体处理完后删除 webclip-cli 输出目录：`rm -rf <outputDir>`
-- 记录 RAW_REFERENCE = `<mention-doc token="<RAW_DOC_ID>" type="docx"><TITLE></mention-doc>`
+- 记录 RAW_REFERENCE = `<cite type="doc" doc-id="<RAW_DOC_ID>"></cite>`
 
 ### 步骤 4：向用户展示操作结果
 
@@ -151,7 +162,7 @@ raw/ 子目录由 init 时用户自定义，从 INDEX 目录配置表动态读�
 ### 步骤 5：追加 LOG
 
 ```
-lark-cli docs +update --as user --doc <LOG_DOC_ID> --mode append --markdown "<IMPORT 日志条目>"
+lark-cli docs +update --as user --doc <LOG_DOC_ID> --command append --doc-format markdown --content "<IMPORT 日志条目>"
 ```
 
 日志条目格式参见 [pages.md](../templates/pages.md) 中的 IMPORT 模板。
@@ -168,4 +179,4 @@ lark-cli docs +update --as user --doc <LOG_DOC_ID> --mode append --markdown "<IM
 - raw/ 内容存入后**不做任何修改**（分支 C 的来源注释除外，属于元数据补充）
 - 分支 A 移动文档会改变文档所在目录，但不影响 doc_id，原有链接仍有效
 - 分支 C 的飞书文档标题即为抓取的页面标题，**不加 "Source:" 前缀**（raw/ 层不使用 wiki/ 层的命名约定）
-- 批量导入多个素材时：逐条执行步骤 2-5，最后统一追加一条汇总 LOG（列出每个 mention-doc 及目标目录）
+- 批量导入多个素材时：逐条执行步骤 2-5，最后统一追加一条汇总 LOG（列出每个 cite/source 引用及目标目录）

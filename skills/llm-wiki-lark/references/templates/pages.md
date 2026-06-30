@@ -1,6 +1,6 @@
 # Page Templates — 页面与日志条目模板
 
-操作运行时用于创建 wiki 页面和追加日志条目的模板。模板中 `{{...}}` 为占位符。`<mention-doc>` 的 token 从 INDEX 页面注册表查找。
+操作运行时用于创建 wiki 页面和追加日志条目的模板。模板中 `{{...}}` 为占位符。飞书文档引用统一使用 `<cite type="doc" doc-id="{{doc_id}}"></cite>`，doc_id 从 INDEX 页面注册表查找；上传文件附件使用 `<source token="{{file_token}}" name="{{filename}}"></source>`。
 
 > 页面类型定义: [wiki-schema.md](../wiki-schema.md)
 
@@ -17,8 +17,8 @@
 - **类型**: source
 - **创建时间**: {{YYYY-MM-DD HH:mm}}
 - **最后更新**: {{YYYY-MM-DD HH:mm}}
-- **原始来源**: <mention-doc token="{{RAW_DOC_ID_OR_FILE_TOKEN}}" type="docx">{{原始标题}}</mention-doc>
-- **关联**: {{<mention-doc> 链接列表}}
+- **原始来源**: {{RAW_REFERENCE}}
+- **关联**: {{DOC_CITE 链接列表}}
 
 </callout>
 
@@ -34,22 +34,22 @@
 
 ## 提取的实体
 
-- <mention-doc token="{{doc_id}}" type="docx">Entity: {{名称}}</mention-doc> — {{角色}}
+- <cite type="doc" doc-id="{{doc_id}}"></cite> — {{角色}}
 
 ## 提取的概念
 
-- <mention-doc token="{{doc_id}}" type="docx">Concept: {{名称}}</mention-doc> — {{体现}}
+- <cite type="doc" doc-id="{{doc_id}}"></cite> — {{体现}}
 
 ## 原始来源
 
-- <mention-doc token="{{RAW_DOC_ID_OR_FILE_TOKEN}}" type="docx">{{标题}}</mention-doc>
+- {{RAW_REFERENCE}}
 ```
 
 ---
 
 ## Entity / Concept / Comparison / Overview 模板
 
-创建时需指定目标文件夹（云盘模式用 `--folder-token`，知识库模式用 `--wiki-node`，详见 [adapter/drive.md](../adapter/drive.md) 或 [adapter/wiki.md](../adapter/wiki.md)）。完整模板内容参见 [wiki-schema.md](../wiki-schema.md) 中各页面类型的「必须段落」定义。
+创建时需用 `docs +create --parent-token <PARENT_TOKEN>` 指定目标位置（云盘模式 `--parent-token` 传 folder_token，知识库模式传 node_token，详见 [adapter/drive.md](../adapter/drive.md) 或 [adapter/wiki.md](../adapter/wiki.md)）。完整模板内容参见 [wiki-schema.md](../wiki-schema.md) 中各页面类型的「必须段落」定义。
 
 ---
 
@@ -81,7 +81,7 @@
 
 **来源**: "{{源文档标题}}"
 **操作**:
-- 创建源摘要: <mention-doc token="{{doc_id}}" type="docx">Source: {{标题}}</mention-doc>
+- 创建源摘要: <cite type="doc" doc-id="{{doc_id}}"></cite>
 - {{创建/更新页面列表}}
 - 更新索引（新增 {{N}} 个页面）
 ```
@@ -96,9 +96,9 @@
 
 **问题**: "{{用户查询}}"
 **参考页面**:
-- <mention-doc token="{{doc_id}}" type="docx">{{页面标题}}</mention-doc>
+- <cite type="doc" doc-id="{{doc_id}}"></cite>
 - {{其他参考页面}}
-**归档**: {{<mention-doc token="{{doc_id}}" type="docx">Comparison/Overview: {{标题}}</mention-doc> 或 "无"}}
+**归档**: {{<cite type="doc" doc-id="{{doc_id}}"></cite> 或 "无"}}
 ```
 
 ### LINT
@@ -132,7 +132,7 @@
 - 原始来源: {{doc_id / 本地路径 / 原始 URL}}
 **目标目录**: `{{raw/papers/ | raw/articles/ | raw/repos/ | raw/datasets/ | raw/images/ | raw/assets/}}`
 **操作**: {{移动文档 | 上传文件 | 抓取并创建文档}}
-**结果**: <mention-doc token="{{doc_id 或 file_token}}" type="docx">{{标题}}</mention-doc>
+**结果**: {{RAW_REFERENCE}}
 **后续**: {{立即执行 ingest | 跳过，待后续摄入}}
 ```
 
@@ -145,7 +145,7 @@
 ### {{ISO_TIMESTAMP}} — IMPORT
 
 **批量导入 {{N}} 个素材**:
-- <mention-doc token="{{token1}}" type="docx">{{标题1}}</mention-doc> → `raw/articles/`（外部链接）
-- <mention-doc token="{{token2}}" type="docx">{{标题2}}</mention-doc> → `raw/papers/`（本地文件）
+- <cite type="doc" doc-id="{{doc_id1}}"></cite> → `raw/articles/`（外部链接）
+- <source token="{{file_token2}}" name="{{文件名2}}"></source> → `raw/papers/`（本地文件）
 **后续**: {{立即执行 ingest | 跳过，待后续摄入}}
 ```

@@ -25,16 +25,23 @@
   从返回结果中获取 `space_id` 和 `node_token`
 - 验证节点可访问后，记录 SPACE_ID、PARENT_TOKEN = node_token、STORAGE_TYPE = `wiki`
 
-### 2. 确定 raw/ 子目录列表（**必须等待用户确认后才能继续**）
+### 2. 确定 raw 装配模式（**必须等待用户确认后才能继续**）
 
 > **⚠️ 阻断步骤**：必须向用户展示配置摘要并等待明确确认，**禁止跳过或自动使用默认值**。
 
-向用户展示以下初始化配置摘要，等待确认：
+先确定 raw 层装配模式（默认 `create`）：
+
+- **create（默认）**：本 wiki 新建 `raw/` 及一组子目录，由用户后续往里放素材。
+- **reference**：把一棵已有的节点树（如现有知识库目录）整体引用为 raw 层；原树原地不动、继续由其维护者增删，下游 ingest 实时枚举感知新增。适用于"已有人工维护目录，想直接拿来当 raw"。
+- **none**：不创建 raw 层。
+
+**若选 create** —— 展示并确认 raw/ 子目录列表：
 
 ```
 📋 初始化配置确认：
   - 知识库名称：<WIKI_NAME>
   - 存储模式：<STORAGE_TYPE>
+  - raw 模式：create
   - raw/ 子目录：papers, articles, repos, datasets, images, assets
 
 以上 raw/ 子目录为默认配置，你可以：
@@ -44,8 +51,28 @@
 
 请确认或修改后继续。
 ```
+记录 `RAW_MODE=create` 和最终 RAW_SUBDIRS 列表。
 
-**收到用户确认后**，记录最终的 RAW_SUBDIRS 列表，然后进入步骤 3。
+**若选 reference** —— 让用户提供被引用的原节点，并校验：
+- 用户给出原节点 URL 或 token：
+  - wiki 模式：`lark-cli wiki spaces get_node` 解析出 `node_token` 和 `space_id` → 记录 `RAW_SOURCE_TOKEN=node_token`、`RAW_SOURCE_SPACE_ID=space_id`（**用原节点真实导航 token，不要建快捷方式当 raw**）
+  - drive 模式：直接用原文件夹 `folder_token` → 记录 `RAW_SOURCE_TOKEN=folder_token`
+- **校验 storage_type 一致**：被引用原节点的存储类型必须与新 root 一致（都 wiki 或都 drive），第一版不支持混合，不一致则提示用户。
+- 用 `scripts/list_raw_tree.sh`（或 `wiki nodes list` / `drive files list`）列原节点一级子项做预览，请用户确认"就是这棵树"。
+- 记录 `RAW_MODE=reference`、RAW_SUBDIRS 留空，展示摘要等待确认：
+
+```
+📋 初始化配置确认：
+  - 知识库名称：<WIKI_NAME>
+  - 存储模式：<STORAGE_TYPE>
+  - raw 模式：reference
+  - 引用原节点：<原节点标题>（token=<RAW_SOURCE_TOKEN>，space=<RAW_SOURCE_SPACE_ID>）
+  - 一级子项预览：<列表>
+
+确认后继续。
+```
+
+**收到用户确认后**，进入步骤 3。
 
 ### 3. 调用初始化脚本
 
@@ -53,10 +80,12 @@
 
 参照 `adapter/<STORAGE_TYPE>.md`「初始化脚本」，通过 Bash 工具调用对应脚本。
 
+> **reference 模式**额外传环境变量 `RAW_MODE=reference`、`RAW_SOURCE_TOKEN=<原节点导航token>`，wiki 模式再加 `RAW_SOURCE_SPACE_ID=<原树space_id>`；此时脚本不创建 raw/ 与子目录，INDEX 的 `raw` 行直接指向原节点。
+
 脚本将依次完成：
 1. 创建根目录
-2. 创建 raw/ 和 wiki/
-3. 创建 raw/ 子目录（串行遍历 RAW_SUBDIRS）
+2. 创建 raw/ 和 wiki/（reference 模式：跳过 raw/，`raw` 直接用原节点 token）
+3. 创建 raw/ 子目录（仅 create 模式串行遍历 RAW_SUBDIRS；reference/none 跳过）
 4. 创建 wiki/ 子目录（sources/entities/concepts/comparisons/overviews）
 5. 创建 AGENTS.md、INDEX、LOG 文档
 6. 用所有 token 覆写 INDEX
@@ -69,12 +98,13 @@
 读取脚本输出末尾的 JSON 摘要，向用户报告：
 - 根目录 URL
 - INDEX 文档 URL
-- 目录结构总结（含存储模式和 raw/ 子目录列表）
+- 目录结构总结（含存储模式和 raw/ 子目录列表；reference 模式报告"raw 层 = 引用现有节点『<标题>』，子目录由 ingest 实时枚举感知新增"）
 - 配置已保存提示
 
 ## 注意事项
 
 - 目录创建顺序：根目录 → 一级子目录 → 二级子目录 → 文档
-- 共创建 `3 + len(RAW_SUBDIRS) + 5` 个文件夹 + 3 个文档（默认 RAW_SUBDIRS=6 时为 14 个文件夹；3 = 根目录 + raw/ + wiki/，5 = wiki 的五个子目录）
+- create 模式共创建 `3 + len(RAW_SUBDIRS) + 5` 个文件夹 + 3 个文档（默认 RAW_SUBDIRS=6 时为 14 个文件夹；3 = 根目录 + raw/ + wiki/，5 = wiki 的五个子目录）
+- **reference 模式**只创建 `根目录 + wiki/ + 5 个 wiki 子目录`（不建 raw/），`raw` 指向被引用的原节点；原节点真实导航 token 写入 INDEX，下游据此实时枚举原树
 - INDEX 的 doc_id 是后续所有操作的入口
 - 知识库模式下，文件夹节点是 docx 文档，在飞书中显示为空文档（这是正常的）

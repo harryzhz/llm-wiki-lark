@@ -4,6 +4,11 @@
 
 WIKI_SUBDIRS="sources entities concepts comparisons overviews"
 
+# raw 层装配模式默认值（init.sh 通常已定义；此处兜底，便于单独 source 调用）
+RAW_MODE="${RAW_MODE:-create}"
+RAW_SOURCE_TOKEN="${RAW_SOURCE_TOKEN:-}"
+RAW_SOURCE_SPACE_ID="${RAW_SOURCE_SPACE_ID:-}"
+
 # ---------- 模板函数 ----------
 
 agents_markdown() {
@@ -32,13 +37,13 @@ agents_markdown() {
 
 ## 引用规范
 
-- 文档内所有对云盘文档/文件的引用统一使用 `<mention-doc token="doc_id 或 file_token" type="docx">标题</mention-doc>`
+- 文档内所有对云盘文档的引用统一使用 `<cite type="doc" doc-id="doc_id"></cite>`；上传文件附件使用 `<source token="file_token" name="文件名"></source>`
 - 禁止在文档内容中使用云盘文档/文件的原始 URL（外部链接不受此限制）
-- INDEX 页面注册表的 Doc 列同样使用 mention-doc 格式
+- INDEX 页面注册表的 Doc 列同样使用 `<cite type="doc" doc-id="doc_id"></cite>`
 
 ## 工作流规则
 
-- **ingest**: 用户将素材放入 raw/ 后通知 LLM → LLM 从 raw/ 读取内容 → 在 wiki/ 创建 Source 摘要和关联页面 → Source 页的「原始来源」用 mention-doc 引用 raw/ 下的素材
+- **ingest**: 用户将素材放入 raw/ 后通知 LLM → LLM 从 raw/ 读取内容 → 在 wiki/ 创建 Source 摘要和关联页面 → Source 页的「原始来源」用 cite/source 引用 raw/ 下的素材
 - **query**: 从 INDEX 定位相关页面 → fetch 并综合回答 → 有价值的回答归档为 Overview/Comparison 回流到 wiki
 - **lint**: 检查矛盾、过时声明、孤立页、缺失页面、断链、交叉引用缺失 → 生成报告 → 建议新问题和新源
 
@@ -68,6 +73,7 @@ MD
 # ---------- INDEX 全量内容 ----------
 # 依赖环境变量（由 run_init 在调用前设置）：
 #   WIKI_NAME, STORAGE_TYPE, SPACE_ID（wiki 模式）
+#   RAW_MODE, RAW_SOURCE_TOKEN, RAW_SOURCE_SPACE_ID（raw 装配模式）
 #   ROOT_TOKEN, RAW_TOKEN, RAW_TOKEN_TABLE, WIKI_TOKEN
 #   TOKEN_sources/entities/concepts/comparisons/overviews
 #   AGENTS_DOC_ID, LOG_DOC_ID, TODAY
@@ -84,6 +90,7 @@ LLM Wiki 索引 — 所有页面的注册表和导航入口。
 ## 目录配置
 
 > Token 列：云盘模式存 folder_token，知识库模式存 node_token。
+> reference 模式下 \`raw\` 行指向被引用的原节点，其子目录不静态登记，由下游实时枚举。
 
 | 目录 | Token |
 |------|-------|
@@ -103,6 +110,9 @@ ${RAW_TOKEN_TABLE}| wiki | ${WIKI_TOKEN} |
 | wiki_name | ${WIKI_NAME} |
 | storage_type | ${STORAGE_TYPE} |
 | space_id | ${space_id_value} |
+| raw_mode | ${RAW_MODE} |
+| raw_source_token | ${RAW_SOURCE_TOKEN:--} |
+| raw_source_space_id | ${RAW_SOURCE_SPACE_ID:--} |
 | 创建时间 | ${TODAY} |
 | 最后更新 | ${TODAY} |
 | 页面总数 | 0 |
@@ -111,6 +121,8 @@ ${RAW_TOKEN_TABLE}| wiki | ${WIKI_TOKEN} |
 
 > - \`storage_type\`：\`drive\`（云盘，默认）或 \`wiki\`（知识库）
 > - \`space_id\`：仅知识库模式需要，云盘模式填 \`-\`
+> - \`raw_mode\`：\`create\`（本 wiki 自建 raw/ 子目录）或 \`reference\`（引用现有节点树，子目录实时枚举）或 \`none\`
+> - \`raw_source_token\` / \`raw_source_space_id\`：仅 reference 模式有值，分别为原树导航 token 与原树 space_id（无则填 \`-\`）
 
 ## 页面注册表
 
@@ -130,9 +142,38 @@ build_log_entry() {
 
 - 操作: 初始化知识库
 - 存储模式: ${STORAGE_TYPE}
+- raw 模式: ${RAW_MODE}
+MD
+  if [[ "$RAW_MODE" == "reference" ]]; then
+    cat <<MD
+- raw 引用源: ${RAW_SOURCE_TOKEN}
+- 创建文件夹: 0 raw（引用现有树）+ 5 wiki 子目录
+MD
+  else
+    cat <<MD
 - raw/ 子目录: ${RAW_SUBDIRS}
 - 创建文件夹: ${raw_count} raw 子目录 + 5 wiki 子目录
 MD
+  fi
+}
+
+# ---------- v2 文档创建（drive / wiki 通用）----------
+# lark-cli docs 已升级为 v2-only：标题内嵌 --content（XML <title>），正文用
+# --doc-format markdown + --command append 追加；父节点统一用 --parent-token
+# （drive 传 folder_token，wiki 传 node_token）。
+# 输出兼容旧契约的 JSON：{data:{doc_id,doc_url}}
+_create_doc_v2() {
+  local title="$1" parent_token="$2" markdown="$3" resp doc_id doc_url
+  resp=$(lark-cli docs +create --as user \
+    --parent-token "$parent_token" --content "<title>${title}</title>")
+  doc_id=$(printf '%s' "$resp" | jq -r '.data.document.document_id // empty')
+  doc_url=$(printf '%s' "$resp" | jq -r '.data.document.url // empty')
+  if [ -z "$doc_id" ]; then echo "ERROR: 创建文档 '$title' 失败: $resp" >&2; return 1; fi
+  if [ -n "$(printf '%s' "$markdown" | tr -d '[:space:]')" ]; then
+    printf '%s' "$markdown" | lark-cli docs +update --as user \
+      --doc "$doc_id" --command append --doc-format markdown --content - >/dev/null
+  fi
+  jq -n --arg id "$doc_id" --arg url "$doc_url" '{data:{doc_id:$id,doc_url:$url}}'
 }
 
 # ---------- 主初始化流程 ----------
@@ -150,19 +191,36 @@ run_init() {
 
   # --- [2/9] raw/ 和 wiki/ ---
   echo "=== [2/9] 创建 raw/ 和 wiki/ ==="
-  RAW_TOKEN=$(_create_dir "raw" "$ROOT_TOKEN")
+  case "$RAW_MODE" in
+    reference)
+      RAW_TOKEN="$RAW_SOURCE_TOKEN"
+      echo "RAW_TOKEN=$RAW_TOKEN (reference: 引用现有节点，不新建 raw/)"
+      ;;
+    none)
+      RAW_TOKEN="-"
+      echo "RAW_TOKEN=- (none: 不创建 raw 层)"
+      ;;
+    *)
+      RAW_TOKEN=$(_create_dir "raw" "$ROOT_TOKEN")
+      echo "RAW_TOKEN=$RAW_TOKEN"
+      ;;
+  esac
   WIKI_TOKEN=$(_create_dir "wiki" "$ROOT_TOKEN")
-  echo "RAW_TOKEN=$RAW_TOKEN  WIKI_TOKEN=$WIKI_TOKEN"
+  echo "WIKI_TOKEN=$WIKI_TOKEN"
 
   # --- [3/9] raw/ 子目录 ---
   echo "=== [3/9] 创建 raw/ 子目录 ==="
   RAW_TOKEN_TABLE=""
-  for subdir in $RAW_SUBDIRS; do
-    echo "  创建 raw/$subdir ..."
-    token=$(_create_dir "$subdir" "$RAW_TOKEN")
-    echo "  raw/$subdir => $token"
-    RAW_TOKEN_TABLE+="| raw/${subdir} | ${token} |"$'\n'
-  done
+  if [[ "$RAW_MODE" == "create" ]]; then
+    for subdir in $RAW_SUBDIRS; do
+      echo "  创建 raw/$subdir ..."
+      token=$(_create_dir "$subdir" "$RAW_TOKEN")
+      echo "  raw/$subdir => $token"
+      RAW_TOKEN_TABLE+="| raw/${subdir} | ${token} |"$'\n'
+    done
+  else
+    echo "  ($RAW_MODE 模式：raw 子目录不静态登记，由下游实时枚举)"
+  fi
 
   # --- [4/9] wiki/ 子目录 ---
   echo "=== [4/9] 创建 wiki/ 子目录 ==="
@@ -201,15 +259,16 @@ run_init() {
   )
   echo "LOG_DOC_ID=$LOG_DOC_ID"
 
-  # --- [8/9] 更新 INDEX ---
-  echo "=== [8/9] 更新 INDEX（填入所有 token）==="
-  lark-cli docs +update --as user --doc "$INDEX_DOC_ID" \
-    --mode overwrite --markdown "$(build_index_markdown)"
+  # --- [8/9] 写入 INDEX 正文 ---
+  # INDEX 在 [6/9] 已以 <title>INDEX</title> 建好空文档，这里 append 正文以保留标题
+  echo "=== [8/9] 写入 INDEX 正文（填入所有 token）==="
+  build_index_markdown | lark-cli docs +update --as user \
+    --doc "$INDEX_DOC_ID" --command append --doc-format markdown --content -
 
   # --- [9/9] 追加 LOG 条目 ---
   echo "=== [9/9] 追加 LOG 初始化条目 ==="
-  lark-cli docs +update --as user --doc "$LOG_DOC_ID" \
-    --mode append --markdown "$(build_log_entry)"
+  build_log_entry | lark-cli docs +update --as user \
+    --doc "$LOG_DOC_ID" --command append --doc-format markdown --content -
 
   # --- 保存配置 + 输出摘要 ---
   echo "=== 初始化完成 ==="
@@ -219,6 +278,7 @@ run_init() {
   ROOT_URL="${ROOT_URL:-}"
   export WIKI_NAME STORAGE_TYPE SPACE_ID ROOT_TOKEN ROOT_URL \
          INDEX_DOC_ID INDEX_DOC_URL AGENTS_DOC_ID AGENTS_DOC_URL \
-         LOG_DOC_ID LOG_DOC_URL RAW_SUBDIRS TODAY
+         LOG_DOC_ID LOG_DOC_URL RAW_SUBDIRS TODAY \
+         RAW_MODE RAW_SOURCE_TOKEN RAW_SOURCE_SPACE_ID
   python3 "$SCRIPT_DIR/save_config.py"
 }

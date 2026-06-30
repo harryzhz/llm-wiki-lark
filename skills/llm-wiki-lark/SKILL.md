@@ -57,7 +57,7 @@ Step 2: 检查认证
 
 - 云盘模式命令见 [Drive Adapter](references/adapter/drive.md)
 - 知识库模式命令见 [Wiki Adapter](references/adapter/wiki.md)
-- 读取、更新、搜索文档使用 `docs +fetch/+update/+search`
+- 读取、更新、搜索文档使用 `docs +fetch/+update/+search`（当前 CLI 默认走 v2，正文用 `--doc-format markdown`）
 - 命令报错时，使用 `lark-doc` / `lark-drive` / `lark-wiki` skill 获取完整参数和示例；如未安装，可通过 `npx skills add larksuite/cli -y -g` 安装。
 
 ## 其他参考文档
@@ -70,7 +70,7 @@ Step 2: 检查认证
 
 ## 关键约束
 
-- **文档中引用其他文档/文件禁止使用原始 URL（外部链接除外）** — 统一使用 `<mention-doc>`, **`<mention-doc>` token 必须用 `doc_id` 或 `file_token`**，type 固定 `docx`（文档和文件引用格式相同）
+- **文档中引用其他飞书文档禁止使用原始 URL（外部链接除外）** — 统一使用 v2 XML 文档引用：`<cite type="doc" doc-id="<DOC_ID>"></cite>`；上传文件附件使用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`
 - **文档中写入流程图、架构图、时序图必须用飞书画板的 DSL 格式**
 - **新文档必须放入对应子目录**
-- **飞书文档增量更新优先，避免 `overwrite`，默认使用分段写入**: `docs +create` 仅写标题，内容用 `docs +update --mode append` 追加
+- **飞书文档增量更新优先，避免 `overwrite`，默认使用分段写入**: `docs +create --content '<title>标题</title>'` 仅写标题骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown` 追加
