@@ -2,7 +2,7 @@ SKILL_DIR := skills/llm-wiki-lark
 OUTPUT_DIR := output
 ZIP_FILE   := $(OUTPUT_DIR)/llm-wiki-lark.zip
 
-.PHONY: pack clean install-hooks security-check
+.PHONY: pack clean install-hooks security-check test test-cli
 
 # Patterns to exclude from the skill zip
 # NOTE: zip requires '*/' suffix to match directories recursively
@@ -42,3 +42,10 @@ install-hooks:
 
 security-check:
 	@bash scripts/security_check.sh --all
+
+test:
+	@python3 scripts/test_init.py
+	@bash scripts/test_check_staleness.sh
+
+test-cli:
+	@python3 scripts/test_cli_v2.py

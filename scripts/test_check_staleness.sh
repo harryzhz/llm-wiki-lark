@@ -22,17 +22,29 @@ case "${LARK_FAKE_MODE:-}" in
     echo "auth expired" >&2
     exit 42
     ;;
-  api_code_nonzero)
-    echo '{"code":999,"msg":"rate limited"}'
+  api_error)
+    echo '{"ok":false,"error":{"message":"rate limited"}}'
+    ;;
+  invalid_json)
+    echo 'not JSON'
+    ;;
+  invalid_response)
+    echo '{"ok":true,"data":{}}'
+    ;;
+  missing_status)
+    echo '{"data":{"metas":[]}}'
     ;;
   missing)
-    echo '{"code":0,"data":{"metas":[]}}'
+    echo '{"ok":true,"data":{"metas":[]}}'
+    ;;
+  found)
+    echo '{"ok":true,"data":{"metas":[{"doc_token":"raw1","latest_modify_time":"1700000000"}]}}'
     ;;
   fallback_file)
     if echo "$payload" | grep -q '"doc_type": "file"'; then
-      echo '{"code":0,"data":{"metas":[{"doc_token":"raw1","latest_modify_time":"1700000000"}]}}'
+      echo '{"ok":true,"data":{"metas":[{"doc_token":"raw1","latest_modify_time":"1700000000"}]}}'
     else
-      echo '{"code":0,"data":{"metas":[]}}'
+      echo '{"ok":true,"data":{"metas":[]}}'
     fi
     ;;
   *)
@@ -74,19 +86,14 @@ run_staleness_case() {
 INPUT_DOCX='[{"source_doc_id":"src1","source_title":"Source 1","raw_token":"raw1","raw_doc_type":"docx","recorded_update":"1970-01-01 00:00"}]'
 INPUT_FILE='[{"source_doc_id":"src1","source_title":"Source 1","raw_token":"raw1","raw_doc_type":"file","recorded_update":"1970-01-01 00:00"}]'
 
-case_output=$(run_staleness_case "exit_nonzero" "$INPUT_DOCX")
-case_status=$(echo "$case_output" | sed -n '1p')
-case_json=$(echo "$case_output" | sed '1d')
-[ "$case_status" -ne 0 ] || { echo "exit_nonzero should fail" >&2; exit 1; }
-assert_json_number "$case_json" '.errors | length' "1"
-assert_json_number "$case_json" '.missing | length' "0"
-
-case_output=$(run_staleness_case "api_code_nonzero" "$INPUT_DOCX")
-case_status=$(echo "$case_output" | sed -n '1p')
-case_json=$(echo "$case_output" | sed '1d')
-[ "$case_status" -ne 0 ] || { echo "api_code_nonzero should fail" >&2; exit 1; }
-assert_json_number "$case_json" '.errors | length' "1"
-assert_json_number "$case_json" '.missing | length' "0"
+for mode in exit_nonzero api_error invalid_json invalid_response missing_status; do
+  case_output=$(run_staleness_case "$mode" "$INPUT_DOCX")
+  case_status=$(echo "$case_output" | sed -n '1p')
+  case_json=$(echo "$case_output" | sed '1d')
+  [ "$case_status" -ne 0 ] || { echo "$mode should fail" >&2; exit 1; }
+  assert_json_number "$case_json" '.errors | length' "1"
+  assert_json_number "$case_json" '.missing | length' "0"
+done
 
 case_output=$(run_staleness_case "missing" "$INPUT_FILE")
 case_status=$(echo "$case_output" | sed -n '1p')
@@ -102,5 +109,21 @@ case_json=$(echo "$case_output" | sed '1d')
 assert_json_number "$case_json" '.errors | length' "0"
 assert_json_number "$case_json" '.missing | length' "0"
 assert_json_number "$case_json" '.stale | length' "1"
+
+case_output=$(run_staleness_case "found" "$INPUT_DOCX")
+case_status=$(echo "$case_output" | sed -n '1p')
+case_json=$(echo "$case_output" | sed '1d')
+[ "$case_status" -eq 0 ] || { echo "found should not fail" >&2; exit 1; }
+assert_json_number "$case_json" '.errors | length' "0"
+assert_json_number "$case_json" '.stale | length' "1"
+
+FRESH_INPUT=$(echo "$INPUT_DOCX" | jq '.[0].recorded_update = "2099-01-01 00:00"')
+case_output=$(run_staleness_case "found" "$FRESH_INPUT")
+case_status=$(echo "$case_output" | sed -n '1p')
+case_json=$(echo "$case_output" | sed '1d')
+[ "$case_status" -eq 0 ] || { echo "fresh should not fail" >&2; exit 1; }
+assert_json_number "$case_json" '.errors | length' "0"
+assert_json_number "$case_json" '.fresh | length' "1"
+assert_json_number "$case_json" '.stale | length' "0"
 
 echo "check_staleness tests passed"

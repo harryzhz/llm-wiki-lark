@@ -37,9 +37,10 @@ The skill is invoked via Claude Code's skill system (trigger: `llm wiki`, `知�
 - **All Feishu document references must use `<cite type="doc" doc-id="doc_id"></cite>`; uploaded file attachments use `<source token="file_token" name="filename"></source>` — raw URLs are forbidden** for cloud drive documents
 - **Callout blocks use list format** (`- ` prefix per field) — Feishu swallows blank lines inside callouts, causing field merging
 - **Section headings must not be duplicated** within a page (e.g., two `## 相关实体` blocks)
-- **INDEX updates via `replace_range --selection-by-title`** replace everything between that heading and the next same-level heading, so the replacement must include the heading itself plus all rows (existing + new)
+- **Docs commands are v2-only** — create with `--parent-token --content --doc-format markdown`; update with `--command`. Read IDs/URLs from `.data.document.document_id` / `.data.document.url`.
+- **INDEX registry updates** merge all existing and new rows, then overwrite the complete INDEX with a leading `# INDEX` title. For local section edits, fetch current block IDs and use `block_replace` with a block ID or an inclusive sibling range; include the heading if it is in that range.
 - **Page creation order matters** — create pages sequentially so earlier doc_ids are available for later cite references
-- **Incremental updates preferred** — use `append` or `replace_range` over `overwrite` when possible
+- **Incremental page updates preferred** — use `append` or `block_replace`; reserve `str_replace` for simple inline text, never whole sections or resource references
 
 ## Runtime Dependencies
 

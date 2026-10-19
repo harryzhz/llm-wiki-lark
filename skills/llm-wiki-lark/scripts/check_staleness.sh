@@ -18,10 +18,10 @@ set -euo pipefail
 BATCH_SIZE=50
 TOLERANCE_SECONDS=300  # 5 分钟容忍度
 ERROR_EXIT_CODE=1
-API_SUCCESS_CODE=0
 ERROR_KIND_EXIT_NONZERO="api_exit_nonzero"
 ERROR_KIND_INVALID_JSON="api_invalid_json"
-ERROR_KIND_API_CODE="api_code_nonzero"
+ERROR_KIND_API_ERROR="api_error"
+ERROR_KIND_INVALID_RESPONSE="api_invalid_response"
 
 # ---------- 工具函数 ----------
 
@@ -78,7 +78,6 @@ query_lark_metas() {
   local request_body="$1"
   local context="$2"
   local command_status
-  local api_code
   local api_message
 
   set +e
@@ -99,11 +98,16 @@ query_lark_metas() {
     return 1
   fi
 
-  api_code=$(echo "$API_RESPONSE" | jq -r '.code // empty')
-  if [ "$api_code" != "$API_SUCCESS_CODE" ]; then
-    api_message=$(echo "$API_RESPONSE" | jq -r '.msg // .message // "unknown API error"')
-    append_error "$context" "$ERROR_KIND_API_CODE" \
-      "Lark API returned code ${api_code:-missing}: $api_message" "$API_RESPONSE"
+  if ! echo "$API_RESPONSE" | jq -e '.ok == true' >/dev/null; then
+    api_message=$(echo "$API_RESPONSE" | jq -r '.error.message // "missing ok=true in CLI response"')
+    append_error "$context" "$ERROR_KIND_API_ERROR" \
+      "$api_message" "$API_RESPONSE"
+    return 1
+  fi
+
+  if ! echo "$API_RESPONSE" | jq -e '.data.metas | type == "array"' >/dev/null; then
+    append_error "$context" "$ERROR_KIND_INVALID_RESPONSE" \
+      "CLI response is missing the data.metas array" "$API_RESPONSE"
     return 1
   fi
 
@@ -157,7 +161,7 @@ while [ "$batch_start" -lt "$TOKEN_COUNT" ]; do
   fi
 
   # 解析响应，将每个 doc 的 modified_time 写入映射
-  # 响应格式: {"code":0,"data":{"metas":[{"doc_token":"...","latest_modify_time":"unix_ts_string",...}]}}
+  # 响应格式: {"ok":true,"data":{"metas":[{"doc_token":"...","latest_modify_time":"unix_ts_string",...}]}}
   METAS=$(echo "$API_RESPONSE" | jq -r '.data.metas // []')
   META_COUNT=$(echo "$METAS" | jq 'length')
 

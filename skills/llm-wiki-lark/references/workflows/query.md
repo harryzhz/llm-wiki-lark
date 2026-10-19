@@ -41,7 +41,7 @@
    当判断为「推荐归档」时：
    - 主动向用户推荐，展示拟创建的页面标题和存放目录
    - 用户确认后立即创建页面、补充交叉引用、更新 INDEX 和 LOG
-   - 创建页面统一两步：先 `lark-cli docs +create --as user --parent-token <PARENT_TOKEN> --content '<title><TITLE></title>'` 写骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown` 追加
+   - 创建页面统一两步：先 `lark-cli docs +create --as user --title "<TITLE>" --parent-token <PARENT_TOKEN> --doc-format markdown --content ""` 写骨架，从 `.data.document.document_id` / `.data.document.url` 读取 doc_id 和 URL，正文再用 `docs +update --doc <DOC_ID> --command append --doc-format markdown --content -` 追加
    - Comparison → 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 COMPARISONS_TOKEN 作为 `--parent-token`
    - Overview/综述 → 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 OVERVIEWS_TOKEN 作为 `--parent-token`
    - 归档后补充交叉引用，让新页面融入已有知识网络
@@ -54,9 +54,9 @@
    - 为某个 Concept 补充了新的来源或解释 → 更新该 Concept 的「来源」和「详细说明」
    - 修正了某页面的过时信息 → 更新该页面内容和 callout 中的「最后更新」
 
-   更新方式：使用 `docs +update --command str_replace --doc-format markdown`（`--pattern` 支持「前缀...后缀」省略号匹配）精确替换相关段落，避免全量覆盖。
+   更新方式：按 [命令参考](../../SKILL.md#命令参考) 先 `docs +fetch --doc <DOC_ID> --detail with-ids` 获取最新 block ID，再用 `docs +update --doc <DOC_ID> --command block_replace --block-id <BLOCK_ID> --doc-format markdown --content -` 替换段落。同父连续多块使用 `--start-block-id <FIRST_BLOCK_ID> --end-block-id <LAST_BLOCK_ID>`，不要包含下一节标题；若替换范围包含本节标题，正文需保留该标题。仅简单行内文本改动才用 `str_replace --pattern "<OLD_TEXT>"`，不使用省略号匹配整段。
    更新前向用户简要说明要更新哪些页面及原因。
 
 7. **更新 INDEX 和 LOG**
-   - **INDEX 页面注册表**：LLM 已持有 INDEX 全量内容，合并新增/变更行后整篇重建，用 `lark-cli docs +update --as user --doc <INDEX_DOC_ID> --command overwrite --doc-format markdown --content -`（heredoc 传入，内容须以 `# INDEX` 一级标题开头以保留标题）；仅改个别字段（如「页面总数」「最后更新」）时用 `--command str_replace --doc-format markdown` 精确替换那一行。**不要用 append 追加新表**——append 出的表格行不会并入原表。
+   - **INDEX 页面注册表**：LLM 已持有 INDEX 全量内容，合并新增/变更行后整篇重建，用 `lark-cli docs +update --as user --doc <INDEX_DOC_ID> --command overwrite --doc-format markdown --content -`（heredoc 传入，内容须以 `# INDEX` 一级标题开头以保留标题）；仅唯一命中的简单行内文本可用 `--command str_replace --pattern "<OLD_TEXT>" --content "<NEW_TEXT>" --doc-format markdown`。**不要用 append 追加新表**——append 出的表格行不会并入原表。
    - **LOG**：用 `lark-cli docs +update --as user --doc <LOG_DOC_ID> --command append --doc-format markdown --content "<日志条目>"` 追加。

@@ -58,11 +58,6 @@ if [[ "$STORAGE_TYPE" == "drive" ]]; then
       | jq -r '.data.token'
   }
 
-  _create_doc() {
-    # drive 模式：父节点为 folder_token，统一走 v2 --parent-token
-    _create_doc_v2 "$1" "$2" "$3"
-  }
-
 elif [[ "$STORAGE_TYPE" == "wiki" ]]; then
 
   : "${SPACE_ID:?wiki 模式需要设置 SPACE_ID}"
@@ -75,11 +70,6 @@ elif [[ "$STORAGE_TYPE" == "wiki" ]]; then
     lark-cli wiki nodes create --as user \
       --params "{\"space_id\":\"$SPACE_ID\"}" --data "$data" \
       | jq -r '.data.node.node_token'
-  }
-
-  _create_doc() {
-    # wiki 模式：父节点为 node_token，统一走 v2 --parent-token
-    _create_doc_v2 "$1" "$2" "$3"
   }
 
 else

@@ -6,7 +6,7 @@
 
 - 已 fetch AGENTS 文档查看规范（`lark-cli docs +fetch --doc <AGENTS_DOC_ID> --doc-format markdown`）
 
-> **命令约定**：本工作流所有读取用 `docs +fetch ... --doc-format markdown`（正文在 `.data.document.content`）；所有修复用 `docs +update ...`，按场景选 `--command append` / `--command overwrite` / `--command str_replace`（均加 `--doc-format markdown`）。INDEX 注册表/配置的写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」（整篇重建 + overwrite 首选，str_replace 备选）。
+> **命令约定**：本工作流所有读取用 `docs +fetch ... --doc-format markdown`（正文在 `.data.document.content`）；修复按场景选 `--command append` / `--command overwrite` / `--command block_replace`（均加 `--doc-format markdown`）。段落、多块或引用修订按 [命令参考](../../SKILL.md#命令参考) 先 fetch 最新 block ID；`str_replace` 仅用于简单行内文本。INDEX 注册表/配置的写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」。
 
 ## 检查维度
 
@@ -92,10 +92,10 @@
    - **SUGGESTION**: D9 缺失页面、建议探索的新问题、推荐寻找的新源
 
 9. **用户确认后执行修复**（均通过 `lark-cli docs +update --doc <DOC_ID> ... --doc-format markdown`）
-   - 自动修复: 补充交叉引用、修复断链、将旧 `<mention-doc token="X"...>` 替换为 `<cite type="doc" doc-id="X"></cite>`（文件附件替换为 `<source token="X" name="..."></source>`）→ `--command str_replace --pattern '旧片段' --content '新片段'` 精确改写相关段落
+   - 自动修复: 补充交叉引用、修复断链、将旧 `<mention-doc token="X"...>` 替换为 `<cite type="doc" doc-id="X"></cite>`（文件附件替换为 `<source token="X" name="..."></source>`）→ 先 `docs +fetch --doc <DOC_ID> --detail with-ids`，再用 `--command block_replace --block-id <BLOCK_ID> --content -` 改写所在块；同父连续多块使用 `--start-block-id <FIRST_BLOCK_ID> --end-block-id <LAST_BLOCK_ID>`，替换内容保留范围内的标题和未改动内容
    - 需确认:
      - 补充空白页内容 → `--command append --content -`（追加缺失段落）
-     - 删除空白页 / 合并重复页 / 更新过时内容 / 重新摄入已更新的源文档（re-ingest）→ 整页重写用 `--command overwrite --content -`（markdown 内容须以页面 `# 一级标题` 开头以保留标题），局部修订用 `--command str_replace`
+     - 删除空白页 / 合并重复页 / 更新过时内容 / 重新摄入已更新的源文档（re-ingest）→ 整页重写用 `--command overwrite --content -`（markdown 内容须以页面 `# 一级标题` 开头以保留标题），局部段落修订用 `--command block_replace`；仅简单行内文本改动用 `--command str_replace --pattern "<OLD_TEXT>" --content "<NEW_TEXT>"`
      - 创建缺失页面 → 参照 `adapter/<STORAGE_TYPE>.md` 的页面创建命令（`docs +create`）
    - INDEX 注册表 / 配置的同步写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」（整篇重建 + overwrite 首选）
 

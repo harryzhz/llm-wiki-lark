@@ -69,6 +69,7 @@ create 模式下，raw/ 子目录由 init 时用户自定义，从 INDEX 目录�
   - URL 格式：取 `/docx/` 后的路径段
   - 纯 token 格式：直接使用
 - 记录 SOURCE_DOC_ID
+- Wiki URL 先用 `lark-cli wiki +node-get --as user --node-token <WIKI_TOKEN>` 解析 `data.node_token` 与 `data.obj_token`；分别记录 SOURCE_NODE_TOKEN 和 SOURCE_DOC_ID，创建 Wiki 快捷方式必须使用前者
 - 验证文档可访问：`lark-cli docs +fetch --as user --doc <SOURCE_DOC_ID> --doc-format markdown`（读取标题，确认存在）
 - 记录 TITLE
 - **⚠️ 阻断操作：执行前必须向用户确认导入方式（默认快捷方式）**：
@@ -118,24 +119,24 @@ create 模式下，raw/ 子目录由 init 时用户自定义，从 INDEX 目录�
   - 若抓取内容明显不完整（字符数异常少、缺少预期章节），提示用户考虑手动复制后走分支 B
 - 从 webclip-cli 输出的 `markdown` 中，将图片 `![alt](images/img_NNN.ext)` 替换为行内占位符 `[图N: alt]`，将视频/音频标签替换为 `[视频N]` / `[音频N]`，标记媒体在原文的位置
 - 在 raw/ 对应子目录创建飞书文档：参照 `adapter/<STORAGE_TYPE>.md`「创建文档」执行对应命令
-  - `+create` 仅写 `<title><TITLE></title>` 骨架（父节点用 `--parent-token <TARGET_TOKEN>`），拿到 RAW_DOC_ID
-  - 正文（来源注释 + 完整正文）按 **≤ 4000 字符/块** 分块，循环用 `+update --as user --doc <RAW_DOC_ID> --command append --doc-format markdown` 追加，直到全部内容写入完毕；长内容/含特殊字符的块用 stdin + 带单引号 heredoc 传 `--content -`
+  - `+create --title "<TITLE>" --parent-token <TARGET_TOKEN> --doc-format markdown --content ""` 仅创建标题骨架，从 `.data.document.document_id` 读取 RAW_DOC_ID、从 `.data.document.url` 读取 DOC_URL
+  - 正文（来源注释 + 完整正文）按 **≤ 4000 字符/块** 分块，循环用 `+update --as user --doc <RAW_DOC_ID> --command append --doc-format markdown --content -` 追加，直到全部内容写入完毕；长内容/含特殊字符的块用 stdin + 带单引号 heredoc 传入
   - **不得因内容过长而截断或省略——必须全部写入**
 - 来源注释格式（置于文档最顶部）：
   ```markdown
   > **原始来源**: <SOURCE_URL>
   > **抓取时间**: <ISO_DATE>
   ```
-- 从返回结果中提取 doc_id，记录 RAW_DOC_ID
+- 后续媒体写入和引用使用创建阶段已记录的 RAW_DOC_ID；不要从 update 返回值提取新文档 ID
 - **媒体写入**（文本全部写入后，逐项处理 MEDIA_LIST 中 `success: true` 的媒体）：
   - 图片（`type: "image"`）：
     ```
-    lark-cli docs +media-insert --doc <RAW_DOC_ID> \
+    lark-cli docs +media-insert --as user --doc <RAW_DOC_ID> \
       --file <localPath> --caption "图N: <alt text>"
     ```
   - 视频/音频（`type: "video"` / `type: "audio"`）：
     ```
-    lark-cli docs +media-insert --doc <RAW_DOC_ID> \
+    lark-cli docs +media-insert --as user --doc <RAW_DOC_ID> \
       --file <localPath> --type file
     ```
   - **禁止用 `drive +upload` + 文档引用处理媒体**——那只会创建文件附件卡片，无法内嵌显示

@@ -41,7 +41,7 @@ Three-layer directory structure on Feishu Drive or Wiki Space:
 
 ## Prerequisites
 
-- [lark-cli](https://github.com/larksuite/cli) (`npm install -g @larksuite/cli`)
+- [lark-cli](https://github.com/larksuite/cli) with docs v2 support (`npm install -g @larksuite/cli`); validated with v1.0.98, docs v1 is no longer supported
 - lark-cli skills (`npx skills add larksuite/cli -y -g`)
 
 ## Installation

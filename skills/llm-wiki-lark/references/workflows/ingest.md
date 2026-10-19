@@ -88,14 +88,14 @@
 
 6. **在 wiki/sources/ 创建或更新 Source 摘要页**
    - 参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 SOURCES_TOKEN 作为父文件夹，标题为 "Source: <标题>"，内容为 Source 模板
-   - 记录 SOURCE_DOC_ID、SOURCE_DOC_URL
+   - 从创建结果的 `.data.document.document_id` / `.data.document.url` 记录 SOURCE_DOC_ID、SOURCE_DOC_URL
    - 如果步骤 2 已确认既有 Source 过时，则更新该 Source；否则创建新的 Source 摘要页
-   - 内容过长时改为：+create 仅写标题骨架，再用 `+update --command append --doc-format markdown` 追加内容
+   - 分段创建时：`+create --title "<TITLE>" --parent-token <SOURCES_TOKEN> --doc-format markdown --content ""` 仅写标题骨架，再用 `+update --doc <SOURCE_DOC_ID> --command append --doc-format markdown --content -` 追加内容
    - callout 块中必须使用列表格式（`- ` 前缀），飞书会吞掉 callout 内的空行导致字段合并为单行
    - `最后更新` 填入当前时间，精确到分钟（格式: YYYY-MM-DD HH:mm）
 
 7. **在 wiki/entities/ 处理实体**
-   - 已存在：`docs +update --command append --doc-format markdown` 追加新来源
+   - 已存在：`docs +update --doc <ENTITY_DOC_ID> --command append --doc-format markdown --content -` 追加独立的新内容；向已有「来源」等段落合并内容时，按 [命令参考](../../SKILL.md#命令参考) 先 fetch block ID，再用 `--command block_replace` 替换该段落
    - 新建：参照 `adapter/<STORAGE_TYPE>.md`「创建文档」，使用 ENTITIES_TOKEN 作为父文件夹（内容过长时同步骤 6 分段写入）
    - 禁止重复写入同名段落（如写两次 "## 相关实体"），每个段落标题在页面中只能出现一次
 
@@ -116,12 +116,12 @@
       EOF
       ```
     - ⚠️ overwrite 会清空重写，**markdown 内容必须以 `# INDEX` 一级标题开头**以保留文档标题
-    - 仅改个别字段（如「页面总数」「最后更新」）时，可改用 `str_replace --doc-format markdown` 精确替换那一行，避免重写整篇
+    - 仅改某字段中唯一命中的行内文本时，可用 `--command str_replace --pattern "<OLD_TEXT>" --content "<NEW_TEXT>" --doc-format markdown`；表格行、多块或引用变更仍用整篇重建或按 block ID 替换
     - Doc 列使用文档引用格式：`<cite type="doc" doc-id="<doc_id>"></cite>`
     - 新增/更新行必须写入别名、标签、Raw Token、出链、入链、证据数、摘要；旧 INDEX 缺列时按空值读取，写回时补齐扩展列
 
 11. **追加 LOG**
-    - `docs +update --command append --doc-format markdown`
+    - `docs +update --as user --doc <LOG_DOC_ID> --command append --doc-format markdown --content -`
 
 12. **报告结果**
 
@@ -132,4 +132,4 @@
 - Source 摘要页的「原始来源」字段统一使用 `<cite>` / `<source>` 引用 raw/ 下的素材，禁止使用原始 URL
 - **callout 内使用列表格式**（`- ` 前缀），飞书会吞掉 callout 内空行导致字段合并
 - **每个段落标题不得重复**，避免出现两个 "## 相关实体" 等
-- **内容过长时分段写入** — `docs +create` 仅写标题骨架，内容用 `docs +update --command append --doc-format markdown` 追加
+- **内容过长时分段写入** — `docs +create --title "<TITLE>" --parent-token <PARENT_TOKEN> --doc-format markdown --content ""` 仅写标题骨架，内容用 `docs +update --doc <DOC_ID> --command append --doc-format markdown --content -` 追加

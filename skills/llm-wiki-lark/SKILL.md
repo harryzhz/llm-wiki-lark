@@ -57,8 +57,22 @@ Step 2: 检查认证
 
 - 云盘模式命令见 [Drive Adapter](references/adapter/drive.md)
 - 知识库模式命令见 [Wiki Adapter](references/adapter/wiki.md)
-- 读取、更新、搜索文档使用 `docs +fetch/+update/+search`（当前 CLI 默认走 v2，正文用 `--doc-format markdown`）
+- 文档操作仅支持 **docs v2**，已验证 `lark-cli 1.0.98`，不提供 v1 回退。Markdown 正文须显式指定 `--doc-format markdown`。
 - 命令报错时，使用 `lark-doc` / `lark-drive` / `lark-wiki` skill 获取完整参数和示例；如未安装，可通过 `npx skills add larksuite/cli -y -g` 安装。
+
+| 操作 | v2 命令 |
+|------|---------|
+| 创建文档 | `lark-cli docs +create --as user --title "<TITLE>" --parent-token <PARENT_TOKEN> --content "<MARKDOWN>" --doc-format markdown` |
+| 读取正文 | `lark-cli docs +fetch --as user --doc <DOC_ID> --doc-format markdown` |
+| 追加正文 | `lark-cli docs +update --as user --doc <DOC_ID> --command append --content "<MARKDOWN>" --doc-format markdown` |
+| 覆盖全文 | `lark-cli docs +update --as user --doc <DOC_ID> --command overwrite --content "<MARKDOWN>" --doc-format markdown` |
+| 替换单块 | `lark-cli docs +update --as user --doc <DOC_ID> --command block_replace --block-id <BLOCK_ID> --content "<MARKDOWN>" --doc-format markdown` |
+| 替换简单行内文本 | `lark-cli docs +update --as user --doc <DOC_ID> --command str_replace --pattern "<OLD_TEXT>" --content "<NEW_TEXT>" --doc-format markdown` |
+
+- 创建结果从 `.data.document.document_id` / `.data.document.url` 读取；fetch 正文从 `.data.document.content` 读取。
+- `--parent-token`：云盘传 `folder_token`，知识库传 `node_token`。Drive 上传、移动、快捷方式仍按各自命令使用 `--folder-token`。
+- 替换段落或多块内容前，先用 `docs +fetch --doc <DOC_ID> --detail with-ids` 获取最新 block ID。单块用 `--block-id`；同一父节点下的连续闭区间用 `--start-block-id <FIRST_BLOCK_ID> --end-block-id <LAST_BLOCK_ID>`。区间包含标题时，替换内容须包含标题；不包含下一节标题。每次修改后重新 fetch，不复用旧 ID。
+- `str_replace` 仅处理简单行内文本，不能替换整节、多块内容或文档/附件引用。长内容用 `--content -` 加带单引号的 heredoc，或 `--content @./draft.md`。
 
 ## 其他参考文档
 
@@ -72,5 +86,5 @@ Step 2: 检查认证
 
 - **文档中引用其他飞书文档禁止使用原始 URL（外部链接除外）** — 统一使用 v2 XML 文档引用：`<cite type="doc" doc-id="<DOC_ID>"></cite>`；上传文件附件使用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`
 - **文档中写入流程图、架构图、时序图必须用飞书画板的 DSL 格式**
-- **新文档必须放入对应子目录**
-- **飞书文档增量更新优先，避免 `overwrite`，默认使用分段写入**: `docs +create --content '<title>标题</title>'` 仅写标题骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown` 追加
+- **新文档必须放入对应子目录**，创建时指定 `--parent-token`
+- **飞书文档增量更新优先，避免 `overwrite`，默认使用分段写入**：`docs +create --title "<TITLE>" --parent-token <PARENT_TOKEN> --doc-format markdown --content ""` 仅写标题骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown --content -` 追加

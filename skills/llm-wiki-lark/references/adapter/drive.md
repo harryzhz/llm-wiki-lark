@@ -17,13 +17,14 @@ lark-cli drive files create_folder --as user --data '{"name":"<NAME>","folder_to
 ## 创建文档
 
 ```
-lark-cli docs +create --as user --parent-token <PARENT_TOKEN> --content '<title><TITLE></title>'
+lark-cli docs +create --as user --title "<TITLE>" --parent-token <PARENT_TOKEN> \
+  --content "<MARKDOWN>" --doc-format markdown
 ```
 
-- 标题从内容自动提取：XML 用 `<title>…</title>`，Markdown 用首个 `# 一级标题`
+- `--title` 显式指定标题；正文通过 `--content` 传入，Markdown 必须加 `--doc-format markdown`
 - 父节点统一用 `--parent-token`，drive 模式传 `folder_token`
 - 返回值在 `.data.document.document_id`（即 `doc_id`）与 `.data.document.url`
-- 长文档分两步：先 `+create` 只写 `<title>` 骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown` 追加
+- 长文档分两步：先按上例传 `--content ""` 创建标题骨架拿到 doc_id，再用 `lark-cli docs +update --as user --doc <DOC_ID> --command append --doc-format markdown --content -` 从 stdin 分段追加正文
 
 ## 列出子项
 
@@ -47,7 +48,7 @@ lark-cli drive +move --as user --file-token <SOURCE_DOC_ID> --type docx --folder
 ## 上传文件
 
 ```
-lark-cli drive +upload --as user --file <文件绝对路径> --folder-token <TARGET_TOKEN>
+lark-cli drive +upload --as user --file ./<文件名> --folder-token <TARGET_TOKEN>
 ```
 
 ## 初始化脚本

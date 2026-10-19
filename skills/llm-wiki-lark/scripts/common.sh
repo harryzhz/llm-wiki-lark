@@ -158,28 +158,32 @@ MD
 }
 
 # ---------- v2 文档创建（drive / wiki 通用）----------
-# lark-cli docs 已升级为 v2-only：标题内嵌 --content（XML <title>），正文用
+# lark-cli docs 仅使用 v2：--title 创建标题骨架，正文用
 # --doc-format markdown + --command append 追加；父节点统一用 --parent-token
 # （drive 传 folder_token，wiki 传 node_token）。
-# 输出兼容旧契约的 JSON：{data:{doc_id,doc_url}}
-_create_doc_v2() {
-  local title="$1" parent_token="$2" markdown="$3" resp doc_id doc_url
+# 输出原生 v2 JSON，文档信息位于 .data.document。
+_create_doc() {
+  local title="$1" parent_token="$2" markdown="$3" resp doc_id
   resp=$(lark-cli docs +create --as user \
-    --parent-token "$parent_token" --content "<title>${title}</title>")
-  doc_id=$(printf '%s' "$resp" | jq -r '.data.document.document_id // empty')
-  doc_url=$(printf '%s' "$resp" | jq -r '.data.document.url // empty')
-  if [ -z "$doc_id" ]; then echo "ERROR: 创建文档 '$title' 失败: $resp" >&2; return 1; fi
+    --title "$title" --parent-token "$parent_token" \
+    --doc-format markdown --content "") || return
+  doc_id=$(printf '%s' "$resp" | jq -er \
+    '.data.document.document_id | select(type == "string" and length > 0)') || {
+    echo "ERROR: 创建文档 '$title' 未返回有效的 v2 document_id: $resp" >&2
+    return 1
+  }
   if [ -n "$(printf '%s' "$markdown" | tr -d '[:space:]')" ]; then
     printf '%s' "$markdown" | lark-cli docs +update --as user \
-      --doc "$doc_id" --command append --doc-format markdown --content - >/dev/null
+      --doc "$doc_id" --command append --doc-format markdown --content - >/dev/null || return
   fi
-  jq -n --arg id "$doc_id" --arg url "$doc_url" '{data:{doc_id:$id,doc_url:$url}}'
+  printf '%s\n' "$resp"
 }
 
 # ---------- 主初始化流程 ----------
 # 要求调用前已定义：
 #   _create_dir "$name" "$parent"   → 输出 token 字符串
-#   _create_doc "$title" "$parent_token" "$markdown" → 输出 JSON（含 .data.doc_id 和 .data.doc_url）
+# 文档创建使用上面的 _create_doc，返回原生 v2 JSON。
+# 需要的环境变量：
 #   STORAGE_TYPE, WIKI_NAME, PARENT_TOKEN, RAW_SUBDIRS
 #   SPACE_ID（wiki 模式必填）
 
@@ -236,7 +240,7 @@ run_init() {
   local agents_result
   agents_result=$(_create_doc "AGENTS" "$ROOT_TOKEN" "$(agents_markdown)")
   read -r AGENTS_DOC_ID AGENTS_DOC_URL < <(
-    echo "$agents_result" | jq -r '[.data.doc_id, (.data.doc_url // "")] | @tsv'
+    echo "$agents_result" | jq -r '[.data.document.document_id, (.data.document.url // "")] | @tsv'
   )
   echo "AGENTS_DOC_ID=$AGENTS_DOC_ID"
 
@@ -245,7 +249,7 @@ run_init() {
   local index_result
   index_result=$(_create_doc "INDEX" "$WIKI_TOKEN" " ")
   read -r INDEX_DOC_ID INDEX_DOC_URL < <(
-    echo "$index_result" | jq -r '[.data.doc_id, (.data.doc_url // "")] | @tsv'
+    echo "$index_result" | jq -r '[.data.document.document_id, (.data.document.url // "")] | @tsv'
   )
   echo "INDEX_DOC_ID=$INDEX_DOC_ID"
 
@@ -255,12 +259,12 @@ run_init() {
   local log_result
   log_result=$(_create_doc "LOG" "$WIKI_TOKEN" "$(log_init_markdown)")
   read -r LOG_DOC_ID LOG_DOC_URL < <(
-    echo "$log_result" | jq -r '[.data.doc_id, (.data.doc_url // "")] | @tsv'
+    echo "$log_result" | jq -r '[.data.document.document_id, (.data.document.url // "")] | @tsv'
   )
   echo "LOG_DOC_ID=$LOG_DOC_ID"
 
   # --- [8/9] 写入 INDEX 正文 ---
-  # INDEX 在 [6/9] 已以 <title>INDEX</title> 建好空文档，这里 append 正文以保留标题
+  # INDEX 在 [6/9] 已建好标题骨架，这里 append 正文以保留标题
   echo "=== [8/9] 写入 INDEX 正文（填入所有 token）==="
   build_index_markdown | lark-cli docs +update --as user \
     --doc "$INDEX_DOC_ID" --command append --doc-format markdown --content -

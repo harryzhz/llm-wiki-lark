@@ -241,7 +241,7 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
   EOF
   ```
   ⚠️ overwrite 会清空重写，markdown 内容**必须以 `# INDEX` 一级标题开头**以保留文档标题。
-- **小改动备选（targeted str_replace）**: 仅改个别字段（如「页面总数」「最后更新」）时，用 `docs +update --doc <INDEX_DOC_ID> --command str_replace --doc-format markdown --pattern '旧片段' --content '新片段'` 精确替换那一行，避免重写整篇。
+- **小改动备选（str_replace）**: 仅某字段中唯一命中的简单行内文本，用 `docs +update --doc <INDEX_DOC_ID> --command str_replace --doc-format markdown --pattern '旧文本' --content '新文本'` 精确替换。表格行、多块或引用变更使用整篇重建，或按 [命令参考](../SKILL.md#命令参考) 获取 block ID 后用 `block_replace`。
 - 不要 append 新表行——append 出的表格行不会并入原表，会成为孤立 block。
 
 ## LOG 文档格式

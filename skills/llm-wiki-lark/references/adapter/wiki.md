@@ -18,13 +18,14 @@ lark-cli wiki nodes create --as user \
 ## 创建文档
 
 ```
-lark-cli docs +create --as user --parent-token <PARENT_NODE_TOKEN> --content '<title><TITLE></title>'
+lark-cli docs +create --as user --title "<TITLE>" --parent-token <PARENT_NODE_TOKEN> \
+  --content "<MARKDOWN>" --doc-format markdown
 ```
 
-- 标题从内容自动提取：XML 用 `<title>…</title>`，Markdown 用首个 `# 一级标题`
+- `--title` 显式指定标题；正文通过 `--content` 传入，Markdown 必须加 `--doc-format markdown`
 - 父节点统一用 `--parent-token`，wiki 模式传 `node_token`
 - 返回值在 `.data.document.document_id`（即 `doc_id` / `obj_token`）与 `.data.document.url`，同时自动创建对应的 wiki 节点
-- 长文档分两步：先 `+create` 只写 `<title>` 骨架拿到 doc_id，正文再用 `docs +update --command append --doc-format markdown` 追加
+- 长文档分两步：先按上例传 `--content ""` 创建标题骨架拿到 doc_id，再用 `lark-cli docs +update --as user --doc <DOC_ID> --command append --doc-format markdown --content -` 从 stdin 分段追加正文
 
 ## 列出子项
 
@@ -37,10 +38,12 @@ lark-cli wiki nodes list --as user --params '{"space_id":"<SPACE_ID>","parent_no
 ```
 lark-cli wiki nodes create --as user \
   --params '{"space_id":"<SPACE_ID>"}' \
-  --data '{"parent_node_token":"<TARGET_TOKEN>","node_type":"shortcut","obj_type":"docx","obj_token":"<SOURCE_DOC_ID>"}'
+  --data '{"parent_node_token":"<TARGET_TOKEN>","node_type":"shortcut","obj_type":"docx","origin_node_token":"<SOURCE_NODE_TOKEN>"}'
 ```
 
-> 原文档保留在原位置，wiki 树中可见引用。后续 `docs +fetch` 使用原始 doc_id 即可。
+> `origin_node_token` 必须传源 Wiki 节点的 `node_token`。如果只有 doc_id，先用 `lark-cli wiki +node-get --as user --node-token <SOURCE_DOC_ID>` 获取 `data.node_token`。原文档保留在原位置，后续 `docs +fetch` 使用原始 doc_id 即可。
+>
+> 尚未挂载到 Wiki 的 Drive 文档没有源 Wiki 节点，不能直接使用此命令创建快捷方式；请用户选择改存 Drive 快捷方式，或确认将原文档移入 Wiki，不自动改为移动。
 
 ## 移动节点
 
@@ -49,23 +52,19 @@ lark-cli api --as user POST /open-apis/wiki/v2/spaces/<SPACE_ID>/nodes/<SOURCE_N
   --data '{"target_parent_token":"<TARGET_TOKEN>","target_space_id":"<SPACE_ID>"}'
 ```
 
-> 路径参数是 `node_token`，不是 doc_id。若源是云盘文档（非知识库节点），需改走快捷方式或提示用户先将文档移入知识库。
+> 路径参数是 `node_token`，不是 doc_id。若源是 Drive 文档，用户已选择直接移动时使用：
+>
+> `lark-cli wiki +move --as user --obj-type docx --obj-token <SOURCE_DOC_ID> --target-space-id <SPACE_ID> --target-parent-token <TARGET_TOKEN>`
 
 ## 上传文件
 
-两步操作：
+直接上传到目标 Wiki 节点：
 
-1. 上传到个人云盘根目录，获取 FILE_TOKEN：
-   ```
-   lark-cli drive +upload --as user --file <文件绝对路径>
-   ```
+```
+lark-cli drive +upload --as user --file ./<文件名> --wiki-token <TARGET_TOKEN>
+```
 
-2. 在 wiki 中创建快捷方式指向上传的文件：
-   ```
-   lark-cli wiki nodes create --as user \
-     --params '{"space_id":"<SPACE_ID>"}' \
-     --data '{"parent_node_token":"<TARGET_TOKEN>","node_type":"shortcut","obj_type":"file","obj_token":"<FILE_TOKEN>"}'
-   ```
+- `--wiki-token` 传目标 `node_token`，返回 `.data.file_token`
 
 ## 初始化脚本
 

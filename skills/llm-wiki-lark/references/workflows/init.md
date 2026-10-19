@@ -76,7 +76,7 @@
 
 ### 3. 调用初始化脚本
 
-> 脚本已内置所有创建逻辑（文件夹、文档、INDEX 更新、LOG 追加、本地配置保存），串行执行避免触发频控。
+> 脚本已内置所有创建逻辑（文件夹、文档、INDEX 更新、LOG 追加、本地配置保存），串行执行避免触发频控。文档创建和更新仅使用 docs v2；创建返回值读取 `.data.document.document_id` / `.data.document.url`。创建或正文写入失败时中止，不保存未完成的配置。
 
 参照 `adapter/<STORAGE_TYPE>.md`「初始化脚本」，通过 Bash 工具调用对应脚本。
 
@@ -88,7 +88,7 @@
 3. 创建 raw/ 子目录（仅 create 模式串行遍历 RAW_SUBDIRS；reference/none 跳过）
 4. 创建 wiki/ 子目录（sources/entities/concepts/comparisons/overviews）
 5. 创建 AGENTS.md、INDEX、LOG 文档
-6. 用所有 token 覆写 INDEX
+6. 用所有 token 追加 INDEX 正文（保留刚创建的标题）
 7. 追加初始化日志到 LOG
 8. 保存本地配置到 `~/.llm_wiki.setting.json`
 9. 输出 JSON 摘要
