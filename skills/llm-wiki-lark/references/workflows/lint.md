@@ -4,9 +4,9 @@
 
 ## 前置条件
 
-- 已 fetch AGENTS 文档查看规范（`lark-cli docs +fetch --doc <AGENTS_DOC_ID> --doc-format markdown`）
+- 已选定 wiki，并 fetch AGENTS 文档查看规范（`lark-cli docs +fetch --doc <AGENTS_DOC_ID> --doc-format markdown`）；按 [存量 AGENTS 引用规范迁移](../wiki-schema.md#存量-agents-引用规范迁移) 检查生效规则，将冲突纳入 D2，不能跳过未登记在页面注册表中的 AGENTS
 
-> **命令约定**：本工作流所有读取用 `docs +fetch ... --doc-format markdown`（正文在 `.data.document.content`）；修复按场景选 `--command append` / `--command overwrite` / `--command block_replace`（均加 `--doc-format markdown`）。段落、多块或引用修订按 [命令参考](../../SKILL.md#命令参考) 先 fetch 最新 block ID；`str_replace` 仅用于简单行内文本。INDEX 注册表/配置的写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」。
+> **命令约定**：正文检查默认用 `docs +fetch ... --doc-format markdown`（正文在 `.data.document.content`）；定位待修订块和验收资源引用时使用 `--doc-format xml --detail full`。修复按场景选 `--command append` / `--command overwrite` / `--command block_replace`（均加 `--doc-format markdown`）。段落、多块或引用修订按 [命令参考](../../SKILL.md#命令参考) 先 fetch 最新 block ID；`str_replace` 仅用于简单行内文本。INDEX 注册表/配置的写回遵循 [wiki-schema.md](../wiki-schema.md)「索引操作规则」。
 
 ## 检查维度
 
@@ -15,7 +15,7 @@
 | # | 维度 | 说明 | 检查时机 | 严重级别 |
 |---|------|------|---------|---------|
 | D1 | 空白页面 | 仅有标题或元数据 callout、缺少实质内容 | 全量 fetch | ERROR |
-| D2 | 引用格式与断链 | `<cite type="doc" doc-id="...">` 指向不存在的 doc_id，或页面仍含会被文本化的旧 `<mention-doc>` | 全量 fetch | ERROR |
+| D2 | 引用格式与断链 | AGENTS 仍要求旧引用语法、实际引用使用旧 `mention-doc`，或引用目标不存在 | AGENTS + INDEX + 全量 fetch | ERROR |
 | D3 | 未索引页面 | wiki/ 子目录中实际存在但未在 INDEX 注册表中登记的页面 | 目录扫描 | ERROR |
 | D4 | 重复页面 | 标题或内容高度相似的页面，应合并 | INDEX + 全量 fetch | WARNING |
 | D5 | 孤立页面 | 无入链的页面，缺乏知识网络连接 | INDEX | WARNING |
@@ -44,7 +44,8 @@
 4. **全量 fetch 检查**（逐页 fetch 所有注册页面，确保无遗漏；每页用 `lark-cli docs +fetch --doc <DOC_ID> --doc-format markdown` 取正文）
    - **[D1 空白页面]** 检查页面内容：如果仅有标题、或仅有元数据 callout 而无实质段落内容 → 标记为空白页
    - **[D4 重复页面-内容级]** 对步骤 3 标题相似的疑似重复组，fetch 后对比内容确认是否为真正重复
-   - **[D2 引用格式与断链]** 提取页面内所有 `<cite type="doc" doc-id="...">` 引用，检查是否在注册表中存在；若正文或 INDEX 中出现旧 `<mention-doc ...>`，直接标记为 ERROR，因为 v2 写入会把它渲染成普通文本
+   - **[D2 引用格式与断链]** 汇总前置检查中的 AGENTS 规范冲突，并检查 INDEX 与页面正文中的实际引用（排除代码示例和历史说明）。旧 `mention-doc` 实际引用标为 ERROR；规范里“禁止旧格式”的说明不报错。对 `<cite type="doc" doc-id="...">` 先查注册表；未登记的目标可能是 AGENTS、LOG 或 raw 文档，须进一步读取目标确认，不能仅凭未登记就判为断链。权限/网络错误报告为无法验证，不冒充目标不存在
+     - 旧标签可能已被服务端移除，只留下标题。对 INDEX Doc 列或原始来源等应为引用的位置，用 XML fetch 确认是否存在 `cite` / `source` 资源节点；不能把所有纯文本标题都当成损坏引用。目标 ID 已丢失时，只能依据同一行 Doc ID、注册表中的唯一匹配或原始写入记录恢复，无法唯一确定时报告待确认，不猜测
    - **[D8 交叉引用缺失]** 检查同类型或关联主题的页面之间是否缺少双向引用
    - **[D9 缺失页面-补充]** 统计页面正文中高频提及但无独立页面的实体/概念名称
    - 元数据完整性：callout 字段是否齐全、必须段落是否存在（标题按 [wiki-schema.md](../wiki-schema.md) 中各类型「等价」列做松匹配，如 `## 来源` ≡ `## 相关来源`）
@@ -75,7 +76,7 @@
    生成报告前，逐项核对 D1–D10 是否全部执行：
 
    - [ ] D1 空白页面
-   - [ ] D2 断链引用
+   - [ ] D2 AGENTS 规范、引用格式与断链
    - [ ] D3 未索引页面
    - [ ] D4 重复页面
    - [ ] D5 孤立页面
@@ -92,7 +93,10 @@
    - **SUGGESTION**: D9 缺失页面、建议探索的新问题、推荐寻找的新源
 
 9. **用户确认后执行修复**（均通过 `lark-cli docs +update --doc <DOC_ID> ... --doc-format markdown`）
-   - 自动修复: 补充交叉引用、修复断链、将旧 `<mention-doc token="X"...>` 替换为 `<cite type="doc" doc-id="X"></cite>`（文件附件替换为 `<source token="X" name="..."></source>`）→ 先 `docs +fetch --doc <DOC_ID> --detail with-ids`，再用 `--command block_replace --block-id <BLOCK_ID> --content -` 改写所在块；同父连续多块使用 `--start-block-id <FIRST_BLOCK_ID> --end-block-id <LAST_BLOCK_ID>`，替换内容保留范围内的标题和未改动内容
+   - 用户已明确要求修复引用规范或已确认本次修复范围时，直接执行对应修复，无需重复确认
+   - 先按 [存量 AGENTS 引用规范迁移](../wiki-schema.md#存量-agents-引用规范迁移) 局部修复 AGENTS，再处理实际引用；不要把规范示例当成待生成的引用
+   - 自动修复: 补充交叉引用、修复断链、将旧 `mention-doc` 实际引用改为 `<cite type="doc" doc-id="<DOC_ID>"></cite>`（文件附件用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`）。先确认目标类型和真实文档 ID；若旧 token 是 wiki 节点，按 Wiki Adapter 解析 `obj_token`，不能直接搬到 `doc-id`。无法确认目标时保留原内容并报告。原标签内有独立说明时移到引用后保留 → 先 `docs +fetch --doc <DOC_ID> --detail full`，再用 `--command block_replace --block-id <BLOCK_ID> --content -` 改写所在块；同父连续多块使用 `--start-block-id <FIRST_BLOCK_ID> --end-block-id <LAST_BLOCK_ID>`，替换内容保留范围内的标题和未改动内容
+   - 每次修复后检查 `warnings` 并重新 fetch；实际文档引用用 XML 输出确认存在 `cite` 元素且 `type="doc"`（属性顺序不限），不能只看 Markdown 中出现了 `cite` 字样；规范示例则应保持代码。未通过验证的项仍报告未修复
    - 需确认:
      - 补充空白页内容 → `--command append --content -`（追加缺失段落）
      - 删除空白页 / 合并重复页 / 更新过时内容 / 重新摄入已更新的源文档（re-ingest）→ 整页重写用 `--command overwrite --content -`（markdown 内容须以页面 `# 一级标题` 开头以保留标题），局部段落修订用 `--command block_replace`；仅简单行内文本改动用 `--command str_replace --pattern "<OLD_TEXT>" --content "<NEW_TEXT>"`

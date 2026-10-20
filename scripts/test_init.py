@@ -140,6 +140,11 @@ class InitV2Tests(unittest.TestCase):
                         self.assertEqual(config[title.lower() + "_doc_url"], "test:doc/" + docs[title]["id"])
                         self.assertTrue(docs[title]["content"].strip())
                     self.assertIn("## 页面类型", docs["AGENTS"]["content"])
+                    agents = docs["AGENTS"]["content"]
+                    self.assertIn('`<cite type="doc" doc-id="<DOC_ID>"></cite>`', agents)
+                    self.assertIn('`<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`', agents)
+                    self.assertNotIn("<mention-doc", agents)
+                    self.assertEqual(agents.count("## 引用规范"), 1)
                     self.assertIn("## 页面注册表", docs["INDEX"]["content"])
                     self.assertIn("doc-AGENTS", docs["INDEX"]["content"])
                     self.assertIn("doc-LOG", docs["INDEX"]["content"])

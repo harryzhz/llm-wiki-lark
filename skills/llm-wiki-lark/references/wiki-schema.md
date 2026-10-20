@@ -257,6 +257,21 @@ LLM 生成和维护的所有知识页面。LLM 完全拥有此层。
 1. **doc-id 必须使用 doc_id / obj_token**（即文档 token）
 2. `<cite>` 不写标签体；需要补充说明时写在标签后，例如：`<cite type="doc" doc-id="<DOC_ID>"></cite> — 说明`
 3. 上传文件附件使用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`，不要伪装成文档引用
-4. **禁止使用旧格式 `<mention-doc ...>`**；在 v2 写入中它会被当作普通文本转义，lint 必须标为 ERROR
+4. **实际文档引用禁止使用旧格式 `<mention-doc ...>`**；v2 可能移除不支持的标签、仅保留标题并返回降级警告；被转义的旧标签也只是普通文本。两者都不能形成引用，lint 标为 D2 ERROR。代码示例、历史说明或“禁止旧格式”的文字不属于实际引用；AGENTS 中仍要求采用旧格式的规则则属于 D2 规范过时，即使示例放在代码中也要报告
 5. **双向链接** — 创建 A 引用 B 时，也应更新 B 引用 A
 6. 从 INDEX 页面注册表中查找 doc_id
+
+### 存量 AGENTS 引用规范迁移
+
+升级本地技能不会自动更新飞书中已创建的 AGENTS。每次读取 AGENTS 时都检查其生效规则，包括「引用规范」、INDEX Doc 列和其他章节中的重复要求；不能只搜索标签名就判定过时。
+
+1. **判定冲突**：仍要求用 `mention-doc` 写文档引用，或把文件附件当文档引用时，报告 D2 ERROR「AGENTS 引用规范过时」。文档写入语法遵循本节 docs v2 契约；领域、命名、摄入和归档等用户约定不受影响。只读查询可以继续；新写入不能回退到旧格式。
+2. **确定修复范围**：用户已要求修复引用规范或已确认 lint 修复时，直接迁移该 wiki 的 AGENTS；仅查询或只要求检查时，报告冲突和建议，不擅自修改 AGENTS。不要跨 wiki 批量迁移。
+3. **读取最新块**：`lark-cli docs +fetch --as user --doc <AGENTS_DOC_ID> --detail full`，保留完整响应（含 `reference_map`）。定位有冲突的块，保留同块中的自定义约定；不要用初始化模板覆盖整篇 AGENTS。
+4. **局部修订**：用 `docs +update --command block_replace` 替换受影响块；同父连续范围可使用 `--start-block-id` / `--end-block-id`。保留范围中的标题和无冲突内容，不追加第二个「引用规范」章节，不用 `str_replace` 迁移资源引用。新规则应覆盖：
+   - 文档引用和 INDEX Doc 列使用 `<cite type="doc" doc-id="<DOC_ID>"></cite>`；`doc-id` 是底层文档的 `doc_id` / `obj_token`，不是 wiki `node_token`。
+   - `<cite>` 不含标题文本；说明放在标签后。上传文件附件使用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`。
+   - 禁止旧 `mention-doc` 写法及云盘文档/文件原始 URL；外部链接仍可使用。
+   - **规范中的语法示例必须保留为行内代码或代码块**。Markdown 中用反引号包住完整标签；XML 中用 `<code>` 并转义文本。不要把示例占位符生成真实引用。
+5. **逐次回读验收**：检查写入结果中的 `warnings`，每次写入后重新 fetch，确认旧的生效规则已消除、新示例仍是代码、自定义约定与未改动内容保留、标题无重复。失败、部分成功或引用降级时报告未完成，不记录迁移成功，也不沿用旧 block ID 重试。再次检查已迁移文档应不产生写操作。
+6. **记录结果**：验证通过后，在 LOG 追加本次 AGENTS 规范迁移记录。AGENTS 修复不代表历史页面引用已修复；实际正文/INDEX 中的旧引用继续按 lint D2 单独检查和迁移，raw/ 保持只读。

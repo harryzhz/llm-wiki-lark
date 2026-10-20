@@ -37,7 +37,7 @@ Step 2: 检查认证
 
 ## 五大操作
 
-- 除 init 外，执行其他操作前先 fetch AGENTS 文档查看规范
+- 除 init 外，选定 wiki 后先 fetch AGENTS 文档查看规范，并按 [存量 AGENTS 引用规范迁移](references/wiki-schema.md#存量-agents-引用规范迁移) 检查它是否仍要求旧引用格式。文档写入语法以当前技能的 docs v2 契约为准；AGENTS 的领域、命名和工作流约定继续保留。发现冲突时报告 D2 规范过时，不得沿用旧标签写入。
 - **Wiki 选择规则**（按优先级）：
   1. 用户在本次请求中指定了 wiki 名称 → 从本地配置的 wikis 数组按 `wiki_name` 匹配
   2. 当前对话上下文已确定 wiki → 沿用

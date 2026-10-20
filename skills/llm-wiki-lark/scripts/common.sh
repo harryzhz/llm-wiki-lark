@@ -15,7 +15,7 @@ agents_markdown() {
   cat <<'MD'
 <callout emoji="📘" background-color="light-blue">
 
-本文档定义此 LLM Wiki 的结构约定和行为规范。LLM 在执行 ingest/query/lint 操作时必须遵循这些规则。用户和 LLM 共同维护此文档，随着知识库演进持续完善。
+本文档定义此 LLM Wiki 的结构约定和行为规范。LLM 在执行 import/ingest/query/lint 操作时必须遵循这些规则。用户和 LLM 共同维护此文档，随着知识库演进持续完善。
 
 </callout>
 
@@ -37,9 +37,12 @@ agents_markdown() {
 
 ## 引用规范
 
-- 文档内所有对云盘文档的引用统一使用 `<cite type="doc" doc-id="doc_id"></cite>`；上传文件附件使用 `<source token="file_token" name="文件名"></source>`
+- 文档写入遵循当前 llm-wiki-lark 技能的 docs v2 契约；本节与技能冲突时按技能的迁移流程修订，保留其他用户约定
+- 文档内所有对云盘文档的引用统一使用 `<cite type="doc" doc-id="<DOC_ID>"></cite>`；上传文件附件使用 `<source token="<FILE_TOKEN>" name="<FILENAME>"></source>`
+- `doc-id` 使用底层文档的 `doc_id` / `obj_token`，不得使用 wiki `node_token`；`cite` 标签内不写标题，补充说明放在标签后
+- 禁止用旧 `mention-doc` 标签写入引用；本节的语法示例保持为代码，实际引用须填入真实 ID 并去掉反引号
 - 禁止在文档内容中使用云盘文档/文件的原始 URL（外部链接不受此限制）
-- INDEX 页面注册表的 Doc 列同样使用 `<cite type="doc" doc-id="doc_id"></cite>`
+- INDEX 页面注册表的 Doc 列同样使用 `<cite type="doc" doc-id="<DOC_ID>"></cite>`
 
 ## 工作流规则
 
